@@ -24,7 +24,7 @@ Codex must STOP and request ADR or Plan update.
 
 ## 2. Architecture Constraints
 
-- Respect Clean Architecture + DDD + Onion.
+- Respect Clean Architecture + DDD + Hexagonal.
 - Domain layer must not depend on infrastructure.
 - Application layer orchestrates use-cases.
 - Infrastructure implements ports.

@@ -13,7 +13,7 @@ This file remains concise and authoritative.
 ## 1. Project Context
 - **Type:** Backend service (Bulletin Board core, gradual evolution)
 - **Stack:** Java 17 + Spring Boot
-- **Architecture:** Clean Architecture + DDD + Onion
+- **Architecture:** Clean Architecture + DDD + Hexagonal
 - **Goal:** build → measure → iterate → document
 
 Claude acts as an execution partner.

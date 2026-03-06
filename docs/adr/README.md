@@ -1,10 +1,10 @@
 # Architecture Decision Records
 
-| ADR ID   | Title | Status | Related Plan |
-|----------|-------|--------|--------------|
-| ADR-0001 | 0001-record-architecture-decisions | Accepted | PLAN-0001    |
-| ADR-0002 | 0002-java17-spring-boot-4 | Accepted | PLAN-0002    |
-| ADR-0003 | 0003-clean-architecture-ddd-onion | Accepted | PLAN-0003    |
+| ADR ID   | Title                                          | Status   | Related Plan |
+|----------|------------------------------------------------|----------|--------------|
+| ADR-0001 | Architecture Decision Records 도입             | Accepted | PLAN-0001    |
+| ADR-0002 | 런타임 스택 — Java 17 + Spring Boot 4.x         | Accepted | PLAN-0002    |
+| ADR-0003 | 아키텍처 패턴 — Clean Architecture + DDD + Hexagonal | Accepted | PLAN-0003    |
 
 Status:
 - Proposed
