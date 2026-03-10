@@ -13,7 +13,7 @@ This file remains concise and authoritative.
 ## 1. Project Context
 - **Type:** Backend service (Bulletin Board core, gradual evolution)
 - **Stack:** Java 17 + Spring Boot
-- **Architecture:** Clean Architecture + DDD + Hexagonal
+- **Architecture:** Clean/Hexagonal Architecture + DDD + CQRS
 - **Goal:** build → measure → iterate → document
 
 Claude acts as an execution partner.
@@ -26,7 +26,7 @@ All architectural, behavioral, and policy decisions are made by humans.
 - Architectural or behavioral changes are implemented only after approval.
 - Any assumption that may influence future work is treated as a decision.
 - Decisions are documented before implementation makes them hard to reverse.
-- Extensive guidelines are maintained in `skills/*.md`, not in this file.
+- Extensive guidelines are maintained in `.claude/skills/*.md`, not in this file.
 
 ---
 
@@ -51,47 +51,86 @@ ADR documentation is not required for:
 
 ---
 
-## 4. Planning Before Execution
+## 4. Planning Gate (Always Required)
 
-When any of the following conditions apply,
-Claude transitions to planning mode before implementation:
-- A new domain concept is introduced
-- A default behavior or invariant is added or modified
-- Performance or consistency assumptions are introduced
-- Future work would naturally depend on this choice
+Every implementation request **must go through Plan Mode first.**
+Plan Mode analyzes the codebase in read-only mode
+and produces an approvable Plan document.
 
-Planning output includes:
-- Goals
-- Phases
-- Risks
-- Success Metrics
-- Task Checklist
+### Plan Mode Rules
+- Do not modify code. Read and analyze only.
+- Create a Plan draft in `docs/plans/in-progress/`.
+- Flag `ADR_REQUIRED` if the change affects architecture, default behavior, performance, or consistency.
+- Stop after producing the Plan and wait for human approval.
 
-An approved plan defines the implementation boundary.
-Execution proceeds only within the approved scope.
+### Plan Document Format
+```markdown
+# PLAN-NNNN: <title>
+## Goal
+## Scope
+## Non-goals
+## Related ADRs
+## Files to Inspect
+## Files to Touch
+## Acceptance Criteria
+## ADR Required    (yes/no — if yes, create ADR first)
+## Risks
+```
+
+### Plan Lifecycle
+- `docs/plans/in-progress/` — drafts produced by Plan Mode
+- `docs/plans/approved/` — human-approved execution contracts
+- `docs/plans/done/` — completed plans for archival
+- Status: Draft → Approved → Completed / Cancelled
+
+ADR = long-term design decision. Plan = single-task execution contract.
 
 ---
 
-## 5. Roles & Workflow
+## 5. Execution Pipeline
 
-### Orchestrator (Human)
+Execute a 3-phase pipeline based on an approved Plan.
+Each phase runs exactly once per cycle.
+
+```
+Human Request
+  → [Phase 1] Planner      — produce Plan draft in Plan Mode, wait for approval
+  → Human Approval          (in-progress → approved)
+  → [Phase 2] Implementer  — implement only from approved Plan
+  → [Phase 3] Reviewer     — verify implementation against Plan
+  → Human decides next action
+```
+
+### Phase 1: Planner (Opus)
+- Enter Plan Mode, analyze codebase read-only
+- Produce Plan draft + determine ADR necessity
+- Stop after output
+
+### Phase 2: Implementer
+- **Execute only from approved plans.** Stop if only in-progress exists.
+- Stop and request plan update if approved plan conflicts with codebase.
+- No out-of-scope refactoring or design expansion
+- Reference plan in commit messages: `feat: ... (PLAN-NNNN)`
+- Include tests for all changed behavior
+
+### Phase 3: Reviewer
+- Verify implementation coverage against the Plan
+- Check conventions, naming, and architecture per `.claude/skills/*.md`
+- Output: issue list with severity, or approval
+- Escalate architectural concerns to human
+- Do not redesign the solution
+
+### Roles
+
+**Orchestrator (Human)**
 - Defines intent and boundaries
-- Approves plans and ADRs
-- Makes architectural and policy decisions
+- Approves phase transitions
+- Holds architectural and policy decision authority
 
-### Implementer (Claude, default)
-- Implements approved plans and tasks
-- Operates within defined boundaries
-- Keeps changes scoped and intentional
-- Writes tests and logs
-
-### Reviewer (Claude, on request)
-- Verifies correctness and alignment
-- Explicitly calls out architectural impact
-- Escalates potential decisions for human review
-
-Claude operates as Implementer by default.
-Orchestrator authority is assumed only when explicitly assigned.
+**Claude (Pipeline Agent)**
+- Executes Planner → Implementer → Reviewer sequentially
+- Operates only within the approved Plan boundary
+- Assumes Orchestrator authority only when explicitly assigned
 
 ---
 
@@ -101,8 +140,8 @@ Orchestrator authority is assumed only when explicitly assigned.
 - Skills are loaded only when contextually relevant
 
 Examples:
-- “API design” → `api-standards.md`
-- “Persistence behavior” → `db-standards.md`
+- “API design” → `.claude/skills/api-standards.md`
+- “Persistence behavior” → `.claude/skills/db-standards.md`
 
 ---
 
