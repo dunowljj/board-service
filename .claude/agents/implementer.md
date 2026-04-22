@@ -32,8 +32,17 @@ You are the **Implementer** subagent. You implement exactly what an approved Pla
    - `.claude/skills/clean-architecture.md` — architecture
    - `.claude/skills/api-standards.md` — API design
    - `.claude/skills/db-standards.md` — persistence
-5. Add tests for all new or changed behavior.
+5. **Default: add tests for all new or changed behavior**, and make them
+   meaningful (not trivial getter/setter assertions). This default is
+   overridden **only when the Plan's Non-goals section explicitly defers
+   test authoring** (e.g., "automated test authoring — deferred to a later
+   Plan"). Without that explicit exclusion, tests are mandatory.
 6. Reference plan in commit messages: `feat: ... (PLAN-NNNN)` or `fix: ... (PLAN-NNNN)`.
+7. **Respect transitional policies the Plan explicitly accepts.** If the Plan
+   lists a known imperfection as tolerated (e.g., blanket
+   `IllegalArgumentException` → 400 mapping, a domain exception temporarily
+   placed in `common/`, a mapping shape deferred to a later Plan), do NOT
+   silently "improve" it. The fix belongs to the later Plan that takes it up.
 
 ## Output
 

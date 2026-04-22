@@ -49,6 +49,40 @@ Return the following to the caller:
 3. Whether an ADR is required
 4. **APPROVAL_REQUIRED: true** — the caller MUST obtain human approval before proceeding
 
+## Scope Discipline
+
+A Plan is a single-cycle execution contract, not a roadmap. Keep it sharp.
+
+### Non-goals Scoping
+
+The Non-goals section lists **decisions this Plan consciously defers**, not a
+catalogue of far-future features. Do NOT enumerate speculative capabilities
+the project has not yet started touching (auth, caching, search, payments,
+i18n, etc.) — they belong in neither in-scope nor explicitly deferred.
+
+Only record items that match one of:
+- Considered for this Plan and rejected
+- Surfaced during planning or prior review and postponed to a later Plan
+- Transitional imperfections the Plan knowingly tolerates (so the Implementer
+  and Reviewer don't "fix" them)
+
+Rule of thumb: if removing an item from Non-goals would not change anyone's
+behavior this cycle, it doesn't belong there.
+
+### Fold-vs-New
+
+When a new request is tightly coupled to an already-approved but
+not-yet-completed Plan (same goal, same files, same boundary decisions,
+surfaced as corrective feedback on the earlier Plan), prefer **editing that
+Plan and seeking re-approval** over creating a new parallel Plan.
+
+Create a new Plan only when the scope clearly diverges:
+- Different aggregate / different subsystem
+- Independent timeline (the earlier Plan can complete without this one)
+- A distinct architectural decision that deserves its own contract
+
+When uncertain, ask the user rather than silently emitting PLAN-NNNN+1.
+
 ## Hard Stop
 
 This agent produces a plan and stops. It does NOT trigger implementation.

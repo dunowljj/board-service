@@ -30,18 +30,58 @@ You are the **Reviewer** subagent. You verify that an implementation matches its
 - Application only depends on Domain
 - Adapters implement Ports correctly
 - No cyclic dependencies
+- **Port Result DTO Layout**
+  - Input Port UseCase results are top-level types under `application/port/in/result/`
+  - Output Port result DTOs are top-level types under `application/port/out/dto/`
+  - No Driving Adapter imports a type declared *inside* an Input Port interface
+  - Command input records nested in the UseCase interface are acceptable
+- **Domain Invariants**
+  - Aggregate's `create` and `reconstitute` enforce the same domain invariants
+  - `reconstitute` additionally rejects nulls the persistence layer must guarantee
+  - Shared validation is extracted into a private helper, not duplicated
+- **Equality Policy**
+  - Value Objects override `equals`/`hashCode`
+  - Entities without `equals`/`hashCode` are acceptable — do NOT flag this on its own
+- **Web Exception Handling Location**
+  - `@RestControllerAdvice` and standard error DTO live under `adapter/in/web/`
+  - Never under `common/`
+- **CQRS Coupling Boundary**
+  - CommandService may depend on a `Load*Port` for pre-condition checks
+  - Existence-only checks MUST use `existsById`-style API, not a full `findById`
 
 ### Conventions
 - API conventions (`.claude/skills/api-standards.md`)
 - Persistence conventions (`.claude/skills/db-standards.md`)
+  - Page-reading Output Port returns `items + totalElements` together; no
+    separate `count()` that the Service re-invokes against the same predicate
+  - Existence checks use the lightweight API, never a full-entity SELECT
 - Naming consistent with existing codebase
 
 ### Tests
-- Tests exist for all new/changed behavior
-- Tests are meaningful (not trivial)
+- **Default: tests must exist for all new/changed behavior, and be meaningful**
+  (not trivial getter/setter assertions).
+- This default is overridden **only when the Plan's Non-goals section
+  explicitly defers test authoring**. In that case, absence of tests is
+  accepted and MUST NOT be flagged as an issue.
+- If the Plan simply omits test work without listing it under Non-goals, the
+  default applies — absence of tests IS an issue.
 
 ### ADR
 - If plan required ADR, it exists and is indexed in `docs/adr/README.md`
+
+### Plan Scope Respect
+
+The Plan is the contract. The Reviewer verifies *against* it, not beyond it.
+
+- Items explicitly listed under the Plan's Non-goals MUST NOT be reported as
+  issues. If the Reviewer believes a Non-goal decision is dangerous, raise it
+  once under "Recommendations" with severity LOW, do not block approval.
+- Transitional policies the Plan knowingly accepts (e.g. blanket
+  `IllegalArgumentException` → 400 while Bean Validation is deferred; a
+  domain exception temporarily placed in `common/` while its move is deferred)
+  are not violations. Flag only if the Plan does not explicitly accept them.
+- Out-of-scope refactoring found in the implementation IS an issue — the
+  Implementer is not allowed to expand scope unilaterally.
 
 ## Output
 
