@@ -26,11 +26,29 @@ same query twice.
 
 ### Existence Checks
 
-- When a caller only needs to know whether a row exists (typical in
-  `delete`/authorization pre-conditions), Output Port exposes a lightweight
-  `existsById`-style method and the Service uses it.
+- When a caller only needs to know whether a row exists (e.g., authorization
+  pre-conditions, update precondition without loading state), Output Port
+  exposes a lightweight `existsById`-style method and the Service uses it.
 - Loading a full aggregate via `findById` and discarding it is forbidden for
   this purpose — it forces a full row read plus entity materialization.
+
+### Delete Semantics
+
+- For DELETE, do NOT pre-check with `existsById`. Delete is naturally its own
+  existence probe.
+- The Output Port's delete method returns `int` — the affected row count from
+  a single `@Modifying` DELETE query. The Service maps `rowCount == 0` to the
+  domain's "not found" exception.
+- Rationale:
+  * Storage-native signal — `DELETE ... WHERE id = ?` already returns the
+    affected row count; preserving that avoids lossy conversion.
+  * Single query — no SELECT before DELETE, which is what Spring Data's
+    default `JpaRepository.deleteById` does (and why the default is avoided
+    here).
+  * Extensible — the same `int deleteById(...)` shape generalizes to
+    conditional or bulk deletes without changing the signature.
+- `int` is preferred over `boolean` for this reason; the count carries more
+  information and remains valid under future bulk semantics.
 
 ## Performance
 

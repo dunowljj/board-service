@@ -47,14 +47,23 @@ You are the **Reviewer** subagent. You verify that an implementation matches its
   - Never under `common/`
 - **CQRS Coupling Boundary**
   - CommandService may depend on a `Load*Port` for pre-condition checks
-  - Existence-only checks MUST use `existsById`-style API, not a full `findById`
+  - Existence-only checks MUST NOT use a full `findById`:
+    - For DELETE: rely on the delete method's own `int` row-count return
+      (single query); no pre-check via `existsById`
+    - For other existence checks: use an `existsById`-style method
 
 ### Conventions
 - API conventions (`.claude/skills/api-standards.md`)
 - Persistence conventions (`.claude/skills/db-standards.md`)
   - Page-reading Output Port returns `items + totalElements` together; no
     separate `count()` that the Service re-invokes against the same predicate
-  - Existence checks use the lightweight API, never a full-entity SELECT
+  - Paging result DTOs live under `application/common/` (use-case contract),
+    not `application/port/out/dto/`
+  - Delete: Output Port returns `int` (affected rows) from a single
+    `@Modifying` DELETE; Service maps `rowCount == 0` to "not found". No
+    pre-check via `existsById` or `findById`
+  - Non-delete existence checks use `existsById`-style API, never a
+    full-entity SELECT
 - Naming consistent with existing codebase
 
 ### Tests

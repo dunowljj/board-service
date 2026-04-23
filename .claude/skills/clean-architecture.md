@@ -49,10 +49,18 @@ and prevent Input and Output port contracts from leaking into each other.
   placed under `application/port/in/result/`. A Web/CLI/Message adapter that
   consumes a UseCase result must never import a type declared *inside* an Input
   Port interface.
-- **Output-side result DTOs** (e.g. `PostPage`) — top-level, placed under
-  `application/port/out/dto/`. Input result and Output result types are
-  physically separate packages so the two port surfaces cannot bleed into each
-  other.
+- **Output-side result DTOs** split by nature:
+  - *Technical* results that expose a storage-specific shape (rare) — top-level
+    under `application/port/out/dto/`.
+  - *Use-case-level contracts* that happen to be produced by an Output Port
+    (pagination, slicing, ordering criteria) — these belong to the Application
+    layer as shared primitives under `application/common/`, NOT under
+    `port/out/dto/`. Pagination is the canonical example: the "items +
+    totalElements" shape is a use-case contract, not a DB technicality, so
+    `PostPage` lives at `application/common/PostPage.java`.
+- Input result and Output result types never share a package or import each
+  other directly; they remain physically separate so the two port surfaces
+  cannot bleed together.
 - Mapping between Output result → Domain → Input result happens inside the
   Application Service.
 
@@ -117,9 +125,13 @@ projects need the boundary more than they need the shortcut.
 - If the read needs of Command and Query start to diverge (different
   projections, different consistency models, different data sources), split
   them via an ADR — do not quietly introduce a parallel read port.
-- For existence-only pre-conditions, CommandService MUST use the lightweight
-  `existsById`-style API rather than loading a full aggregate. Loading the full
-  aggregate just to throw it away is a review-level issue.
+- For existence-only pre-conditions, CommandService MUST NOT load a full
+  aggregate just to throw it away. Use the lightest signal available:
+  - **DELETE**: rely on the delete operation's own row-count return (single
+    query). The Output Port's delete returns `int`; the Service maps
+    `rowCount == 0` to "not found". See `db-standards.md` → Delete Semantics.
+  - **Other existence checks**: use an `existsById`-style method on the
+    appropriate `Load*Port`.
 
 ## Forbidden
 
