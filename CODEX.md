@@ -46,6 +46,10 @@ If any condition is missing:
 
 ## 4. Authority & Boundaries
 
+Codex must (entry procedure):
+- Before review, read every path listed in the target Plan's `## Required Reading` section.
+- If the Plan lacks a `## Required Reading` section, return `BLOCKED: Plan missing Required Reading manifest` and do not proceed.
+
 Codex may:
 - Read approved plan and changed files
 - Review architecture consistency and workflow/config consistency
