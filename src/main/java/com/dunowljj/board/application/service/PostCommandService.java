@@ -6,7 +6,7 @@ import com.dunowljj.board.application.port.in.UpdatePostUseCase;
 import com.dunowljj.board.application.port.out.DeletePostPort;
 import com.dunowljj.board.application.port.out.LoadPostPort;
 import com.dunowljj.board.application.port.out.SavePostPort;
-import com.dunowljj.board.common.exception.PostNotFoundException;
+import com.dunowljj.board.common.error.PostNotFoundException;
 import com.dunowljj.board.domain.post.Post;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
