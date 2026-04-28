@@ -19,6 +19,15 @@ public enum ErrorCode {
     POST_NOT_FOUND("POST_NOT_FOUND", ErrorCategory.NOT_FOUND, "게시글을 찾을 수 없습니다"),
     INVALID_POST_CONTENT("INVALID_POST_CONTENT", ErrorCategory.INVALID_INPUT, "게시글 내용이 올바르지 않습니다"),
     /**
+     * Generic fallback for Spring MVC framework client errors (malformed JSON,
+     * path/query parameter type mismatch, missing required parameter, unsupported
+     * media type, method not allowed, etc.). Emitted by
+     * {@code GlobalExceptionHandler.handleExceptionInternal} when the parent
+     * {@code ResponseEntityExceptionHandler} resolves a 4xx framework exception.
+     * Not throwable via {@code BusinessException} subtypes (no domain code throws this).
+     */
+    MALFORMED_REQUEST("MALFORMED_REQUEST", ErrorCategory.INVALID_INPUT, "요청 형식이 올바르지 않습니다"),
+    /**
      * Server-internal fallback. Reserved for the safety-net handler in
      * {@code GlobalExceptionHandler}. Do <b>not</b> throw this via {@code BusinessException}
      * — the {@code BusinessException} constructor will reject it at runtime.
