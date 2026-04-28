@@ -75,7 +75,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             pd.setInstance(URI.create(path));
         }
         pd.setProperty("code", errorCode.code());
-        pd.setProperty("category", errorCode.category().name());
         pd.setProperty("timestamp", LocalDateTime.now().toString());
     }
 }

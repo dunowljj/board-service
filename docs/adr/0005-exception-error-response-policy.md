@@ -103,7 +103,6 @@ RuntimeException
   "detail": "게시글을 찾을 수 없습니다",
   "instance": "/api/posts/42",
   "code": "POST_NOT_FOUND",
-  "category": "NOT_FOUND",
   "timestamp": "2026-04-29T10:15:30"
 }
 ```
@@ -118,7 +117,6 @@ RuntimeException
   "detail": "입력 형식이 올바르지 않습니다",
   "instance": "/api/posts",
   "code": "VALIDATION_FAILED",
-  "category": "INVALID_INPUT",
   "timestamp": "...",
   "errors": [
     { "field": "title", "reason": "must not be blank" }
@@ -127,9 +125,9 @@ RuntimeException
 ```
 
 - 표준 필드(`type`/`title`/`status`/`detail`/`instance`)는 RFC 9457 의미를 그대로 따른다. `instance`에 요청 path를 담는다.
-- 커스텀 property `code`는 우리 `ErrorCode` 카탈로그의 SCREAMING_SNAKE_CASE 값. 클라이언트가 *특정* 에러를 분기 처리할 때 가장 안정적인 키.
-- 커스텀 property `category`는 `ErrorCategory` enum 값(SCREAMING_SNAKE_CASE: `NOT_FOUND`, `INVALID_INPUT`, `CONFLICT`, `FORBIDDEN`, `INTERNAL`). 클라이언트가 *유사 에러군*을 묶어 처리할 때의 coarse-grained 키.
+- 커스텀 property `code`는 우리 `ErrorCode` 카탈로그의 SCREAMING_SNAKE_CASE 값. 클라이언트가 분기 처리할 때 가장 안정적인 키.
 - 커스텀 property `timestamp`는 ISO-8601 문자열.
+- `ErrorCategory`는 *서버 내부* 정책 모델로만 두고 응답에는 노출하지 않는다 — `ErrorCategory → HttpStatus`가 1:1이라 클라이언트는 HTTP `status`로 coarse 분기하고 `code`로 fine 분기하는 것이 자연스럽다. 응답에 `category`까지 두면 status와 의미 중복이 발생한다.
 - 검증 실패 시의 `errors[]`도 커스텀 property (PLAN-0005-B에서 도입).
 - `type` URI는 초기엔 `about:blank` (Spring 기본). 추후 에러 문서 호스팅 시 `https://errors.{host}/POST_NOT_FOUND` 같은 도메인-특화 URI로 전환 가능 — 이때 `code` 커스텀 property는 그대로 유지해 클라이언트 호환성을 보존한다.
 - **표준 채택 이유**: 업계 표준(RFC 9457), Spring 6 네이티브 지원으로 `ResponseEntityExceptionHandler`가 framework MVC 4xx에 ProblemDetail body를 자동 생성 → 우리는 `code`/`timestamp` 커스텀 property만 enrich하면 됨. 자기 정의 스키마를 유지하는 비용보다 표준에 맞춰가는 비용이 작다.
