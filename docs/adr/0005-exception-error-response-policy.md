@@ -89,34 +89,50 @@ RuntimeException
 - 응답에는 노출하지 않는다(로그에만 사용).
 - 향후 `ErrorContext` 전용 타입으로 강제 가능하지만, 초기엔 규약 + 코드 리뷰로 통제한다.
 
-### 4. 에러 응답 스키마 — 표준 + 검증 확장
+### 4. 에러 응답 스키마 — RFC 9457 ProblemDetail + 커스텀 property
+
+응답 body는 **RFC 9457 (HTTP Problem Details, ex-RFC 7807)** 표준을 따른다 — Spring 6의 `org.springframework.http.ProblemDetail`을 그대로 사용. 우리 본래 필드(`code` SCREAMING_SNAKE_CASE, `timestamp`)는 **커스텀 property**로 표준 본문에 덧붙인다.
 
 표준 응답:
 
 ```json
 {
+  "type": "about:blank",
+  "title": "Not Found",
+  "status": 404,
+  "detail": "게시글을 찾을 수 없습니다",
+  "instance": "/api/posts/42",
   "code": "POST_NOT_FOUND",
-  "message": "게시글을 찾을 수 없습니다",
-  "timestamp": "2026-04-26T10:15:30",
-  "path": "/api/posts/42"
+  "category": "NOT_FOUND",
+  "timestamp": "2026-04-29T10:15:30"
 }
 ```
 
-검증 실패 시 `errors[]`를 추가:
+검증 실패 시 `errors[]`를 커스텀 property로 추가:
 
 ```json
 {
+  "type": "about:blank",
+  "title": "Bad Request",
+  "status": 400,
+  "detail": "입력 형식이 올바르지 않습니다",
+  "instance": "/api/posts",
   "code": "VALIDATION_FAILED",
-  "message": "입력 형식이 올바르지 않습니다",
+  "category": "INVALID_INPUT",
   "timestamp": "...",
-  "path": "/api/posts",
   "errors": [
     { "field": "title", "reason": "must not be blank" }
   ]
 }
 ```
 
-- `errors[]` 필드는 비어 있을 때 직렬화하지 않는다(`@JsonInclude(NON_EMPTY)`).
+- 표준 필드(`type`/`title`/`status`/`detail`/`instance`)는 RFC 9457 의미를 그대로 따른다. `instance`에 요청 path를 담는다.
+- 커스텀 property `code`는 우리 `ErrorCode` 카탈로그의 SCREAMING_SNAKE_CASE 값. 클라이언트가 *특정* 에러를 분기 처리할 때 가장 안정적인 키.
+- 커스텀 property `category`는 `ErrorCategory` enum 값(SCREAMING_SNAKE_CASE: `NOT_FOUND`, `INVALID_INPUT`, `CONFLICT`, `FORBIDDEN`, `INTERNAL`). 클라이언트가 *유사 에러군*을 묶어 처리할 때의 coarse-grained 키.
+- 커스텀 property `timestamp`는 ISO-8601 문자열.
+- 검증 실패 시의 `errors[]`도 커스텀 property (PLAN-0005-B에서 도입).
+- `type` URI는 초기엔 `about:blank` (Spring 기본). 추후 에러 문서 호스팅 시 `https://errors.{host}/POST_NOT_FOUND` 같은 도메인-특화 URI로 전환 가능 — 이때 `code` 커스텀 property는 그대로 유지해 클라이언트 호환성을 보존한다.
+- **표준 채택 이유**: 업계 표준(RFC 9457), Spring 6 네이티브 지원으로 `ResponseEntityExceptionHandler`가 framework MVC 4xx에 ProblemDetail body를 자동 생성 → 우리는 `code`/`timestamp` 커스텀 property만 enrich하면 됨. 자기 정의 스키마를 유지하는 비용보다 표준에 맞춰가는 비용이 작다.
 - `traceId`는 **응답 body가 아니라 응답 헤더 `X-Trace-Id`로 노출한다.**
   - 이유: body는 API 계약 = 변경 비용이 크다. 관측성 식별자는 HTTP 본연의 메타 영역(헤더)이 더 자연스럽고, 클라이언트 도구(devtools/curl)가 자동 노출한다.
   - 사용자 신고 시 헤더 한 값만 캡처하여 로그 grep이 가능하다.
@@ -181,7 +197,7 @@ RuntimeException
 
 | Plan | 범위 | 변경 주기 |
 |---|---|---|
-| **PLAN-0005-A** 에러 모델 표준화 | **Phase 1 (에러 모델 골격)**: `ErrorCode` enum (code/category/defaultMessage), `ErrorCategory` enum, `ErrorCategoryHttpStatusMapper` (Web adapter), `BusinessException` 추상 클래스, `ErrorResponse`(path 포함), 핸들러 압축. **Phase 2 (도메인 마이그레이션)**: 도메인의 `IllegalArgumentException` → 도메인 전용 `BusinessException` 서브타입 치환. | 년 단위 (API 계약) |
+| **PLAN-0005-A** 에러 모델 표준화 | **Phase 1 (에러 모델 골격)**: `ErrorCode` enum (code/category/defaultMessage), `ErrorCategory` enum, `ErrorCategoryHttpStatusMapper` (Web adapter), `BusinessException` 추상 클래스, RFC 9457 `ProblemDetail` 응답 + `code`/`timestamp` 커스텀 property, 핸들러 압축. **Phase 2 (도메인 마이그레이션)**: 도메인의 `IllegalArgumentException` → 도메인 전용 `BusinessException` 서브타입 치환. | 년 단위 (API 계약) |
 | **PLAN-0005-B** 입력 검증 표준화 | (아래 §PLAN-0005-B 상세 참조) | 분기 단위 (DTO 변경) |
 | **PLAN-0005-C** 관측성 / 로깅 표준화 | (아래 §PLAN-0005-C 상세 참조) | 인프라 도입 단위 (자주 변경) |
 
@@ -192,7 +208,7 @@ RuntimeException
 - DTO에 Jakarta Bean Validation 어노테이션 부착 (`@NotBlank`, `@Size`, `@Pattern` 등)
 - 컨트롤러 핸들러 시그니처에 `@Valid` 부착
 - `ErrorCode.VALIDATION_FAILED` 항목 추가
-- `ErrorResponse`에 `errors[]` 필드 추가 (`@JsonInclude(NON_EMPTY)`로 비어있을 때 직렬화 생략)
+- 검증 실패 응답 body에 `errors[]` 커스텀 property 추가 (ProblemDetail의 `setProperty("errors", List.of(...))`)
 - `MethodArgumentNotValidException`을 `VALIDATION_FAILED` + field-level `errors[]`로 응답하는 핸들러 추가 (`GlobalExceptionHandler.handleMethodArgumentNotValid` override 또는 별도 `@ExceptionHandler`)
 
 **Out-of-scope** (다른 Plan으로 미룸):
@@ -200,7 +216,7 @@ RuntimeException
 - 인증/인가 검증 — 인증 도입 시 별도 ADR
 - 비즈니스 규칙 검증 (예: 게시글 수 상한) — 도메인 invariant이므로 도메인 레이어 책임
 
-**전제**: PLAN-0005-A가 머지되어 `ErrorCode`/`ErrorResponse`/`GlobalExceptionHandler` 골격이 존재.
+**전제**: PLAN-0005-A가 머지되어 `ErrorCode` / `ProblemDetail` 응답 골격 / `GlobalExceptionHandler`가 존재.
 
 #### PLAN-0005-C 상세
 
