@@ -28,6 +28,13 @@ public enum ErrorCode {
      */
     MALFORMED_REQUEST("MALFORMED_REQUEST", ErrorCategory.INVALID_INPUT, "요청 형식이 올바르지 않습니다"),
     /**
+     * Bean Validation failures from web-adapter input validation
+     * ({@code @Valid @RequestBody}, {@code @RequestParam @Min}, etc.).
+     * Emitted by {@code GlobalExceptionHandler}; not throwable via
+     * {@code BusinessException} subtypes.
+     */
+    VALIDATION_FAILED("VALIDATION_FAILED", ErrorCategory.INVALID_INPUT, "입력 형식이 올바르지 않습니다"),
+    /**
      * Server-internal fallback. Reserved for the safety-net handler in
      * {@code GlobalExceptionHandler}. Do <b>not</b> throw this via {@code BusinessException}
      * — the {@code BusinessException} constructor will reject it at runtime.
