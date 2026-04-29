@@ -7,6 +7,9 @@ import com.dunowljj.board.adapter.in.web.dto.response.PostResponse;
 import com.dunowljj.board.application.port.in.*;
 import com.dunowljj.board.application.port.in.result.PostListResult;
 import com.dunowljj.board.domain.post.Post;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +27,7 @@ public class PostController {
     private final ListPostsUseCase listPostsUseCase;
 
     @PostMapping
-    public ResponseEntity<PostResponse> create(@RequestBody CreatePostRequest request) {
+    public ResponseEntity<PostResponse> create(@Valid @RequestBody CreatePostRequest request) {
         var command = new CreatePostUseCase.CreatePostCommand(
                 request.title(), request.body(), request.author());
         Post post = createPostUseCase.create(command);
@@ -39,7 +42,7 @@ public class PostController {
 
     @PutMapping("/{id}")
     public ResponseEntity<PostResponse> update(@PathVariable Long id,
-                                               @RequestBody UpdatePostRequest request) {
+                                               @Valid @RequestBody UpdatePostRequest request) {
         var command = new UpdatePostUseCase.UpdatePostCommand(
                 id, request.title(), request.body());
         Post post = updatePostUseCase.update(command);
@@ -54,8 +57,8 @@ public class PostController {
 
     @GetMapping
     public ResponseEntity<PostListResponse> list(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(name = "page", defaultValue = "0") @Min(0) int page,
+            @RequestParam(name = "size", defaultValue = "20") @Min(1) @Max(100) int size) {
         PostListResult result = listPostsUseCase.list(page, size);
         return ResponseEntity.ok(PostListResponse.from(result));
     }

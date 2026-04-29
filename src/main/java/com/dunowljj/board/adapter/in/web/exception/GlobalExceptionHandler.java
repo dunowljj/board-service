@@ -46,18 +46,27 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         List<Map<String, String>> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(GlobalExceptionHandler::validationError)
                 .toList();
-        return validationFailed(errors, headers, path(request));
+        return validationFailed(errors, headers, status, path(request));
     }
 
     @Override
     protected ResponseEntity<Object> handleHandlerMethodValidationException(
             HandlerMethodValidationException ex, HttpHeaders headers,
             HttpStatusCode status, WebRequest request) {
+        // Return-value validation failure (Spring sets status=500) is a server-side bug,
+        // not a client input error. Respond as INTERNAL_ERROR directly. VALIDATION_FAILED
+        // is reserved for client-input (request parameter / @RequestBody) violations only.
+        if (ex.isForReturnValue()) {
+            ProblemDetail body = problemDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+                    ErrorCode.INTERNAL_ERROR.defaultMessage(),
+                    path(request), ErrorCode.INTERNAL_ERROR);
+            return new ResponseEntity<>(body, headers, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
         List<Map<String, String>> errors = ex.getParameterValidationResults().stream()
                 .flatMap(result -> result.getResolvableErrors().stream()
                         .map(error -> validationError(fieldName(result), reason(error))))
                 .toList();
-        return validationFailed(errors, headers, path(request));
+        return validationFailed(errors, headers, status, path(request));
     }
 
     /**
@@ -93,12 +102,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private static ResponseEntity<Object> validationFailed(
-            List<Map<String, String>> errors, HttpHeaders headers, String path) {
-        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST,
+            List<Map<String, String>> errors, HttpHeaders headers,
+            HttpStatusCode statusCode, String path) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(statusCode,
                 ErrorCode.VALIDATION_FAILED.defaultMessage());
         pd.setProperty("errors", errors);
         enrich(pd, path, ErrorCode.VALIDATION_FAILED);
-        return new ResponseEntity<>(pd, headers, HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(pd, headers, statusCode);
     }
 
     private static ProblemDetail problemDetail(HttpStatus status, String detail, String path, ErrorCode errorCode) {
