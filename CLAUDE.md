@@ -48,6 +48,11 @@ ADR documentation is not required for:
 - Each ADR is indexed in `docs/adr/README.md`
 - Status must be one of: Proposed | Accepted | Superseded
 - Superseded ADRs remain for historical clarity
+- **ADR ↔ Plan 번호 정합 규약** (ADR-0004 §3):
+  - ADR-NNNN과 그로부터 파생된 Plan은 같은 번호 NNNN을 공유한다.
+  - 한 ADR이 여러 Plan으로 펼쳐질 경우 Plan은 `-A`, `-B`, `-C` 접미사로 구분한다.
+  - ADR 없이 단독 진행되는 Plan은 해당 NNNN의 ADR 슬롯을 비워둘 수 있다 (README에 사유 기록).
+  - 회고 ADR이 허용된다 (Proposed → Accepted 정상 흐름).
 
 ---
 
@@ -64,18 +69,41 @@ and produces an approvable Plan document.
 - Stop after producing the Plan and wait for human approval.
 
 ### Plan Document Format
+
+Plan은 **상층(승인 대상)** 과 **하층(구현 재량)** 두 블록으로 구성한다. 상층은 사람·리뷰어가 30초 안에 방향을 판정하는 자리, 하층은 에이전트(Claude·Codex)가 동일하게 실행하도록 만드는 자리다.
+
 ```markdown
 # PLAN-NNNN: <title>
+
+<!-- 상층: 승인 게이트 — 방향/범위/완료 기준 -->
 ## Goal
 ## Scope
 ## Non-goals
 ## Related ADRs
-## Files to Inspect
-## Files to Touch
 ## Acceptance Criteria
 ## ADR Required    (yes/no — if yes, create ADR first)
 ## Risks
+
+<!-- 하층: 실행 재량 — 코드베이스 충돌 시 갱신 가능 -->
+## Required Reading
+## Files to Touch
+## Implementation Hints   (optional)
 ```
+
+**`## Required Reading`** — Plan을 실행/리뷰하기 전 에이전트(Claude·Codex 등)가 *반드시 읽어야 할 모든 경로*를 나열한다. 외부 에이전트(예: 다른 세션의 Codex)가 세션 컨텍스트 없이 Plan을 받아도 동일하게 작업할 수 있게 만드는 자기충족 매니페스트다. 포함 대상:
+- `## Related ADRs`에 적힌 ADR들 (위에 이미 적었어도 경로로 다시 명시)
+- 작업 이해에 필요한 기존 코드 파일 (변경 안 하더라도)
+- `CLAUDE.md`, 관련 `.claude/skills/*.md`
+
+**`## Implementation Hints` (optional)** — 구조 골격(새/변경 파일 경로, 클래스·함수 시그니처, 핵심 invariant, 테스트 케이스 윤곽)을 적는다. 다음 경우에 채운다:
+- Codex Mode 3 (Codex가 구현 주체)을 쓸 계획
+- 새 패턴/구조를 도입하는 Plan, 여러 파일에 걸친 구조 변경
+- 다음 도메인이 같은 골격을 따라야 하는 Plan
+
+다음 경우엔 비워둔다:
+- 1파일 단순 수정, 의존성 버전 업데이트, 문서 변경
+
+**작성 한계**: Hints는 구조 골격까지. 의사코드 수준으로 가지 않는다 — "마크다운으로 코드 짜기"가 되면 작성 비용이 구현 비용을 넘는다. 하층은 상층에서 *도출*되어야 하며, 상층 Scope를 새로 만들지 않는다.
 
 ### Plan Lifecycle
 - `docs/plans/in-progress/` — drafts produced by Plan Mode

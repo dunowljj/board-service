@@ -1,5 +1,6 @@
 package com.dunowljj.board.domain.post;
 
+import com.dunowljj.board.common.error.InvalidPostContentException;
 import java.util.Objects;
 
 public class PostContent {
@@ -9,10 +10,10 @@ public class PostContent {
 
     public PostContent(String title, String body) {
         if (title == null || title.isBlank()) {
-            throw new IllegalArgumentException("Title must not be blank");
+            throw new InvalidPostContentException("title");
         }
         if (body == null) {
-            throw new IllegalArgumentException("Body must not be null");
+            throw new InvalidPostContentException("body");
         }
         this.title = title;
         this.body = body;

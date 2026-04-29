@@ -1,5 +1,6 @@
 package com.dunowljj.board.domain.post;
 
+import com.dunowljj.board.common.error.InvalidPostContentException;
 import java.time.LocalDateTime;
 
 public class Post {
@@ -44,7 +45,7 @@ public class Post {
 
     private static void validateAuthor(String author) {
         if (author == null || author.isBlank()) {
-            throw new IllegalArgumentException("Author must not be blank");
+            throw new InvalidPostContentException("author");
         }
     }
 
