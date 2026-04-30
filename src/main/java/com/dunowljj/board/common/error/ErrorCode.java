@@ -11,7 +11,8 @@ package com.dunowljj.board.common.error;
  *   <li>4xx codes are throwable via {@code BusinessException} subtypes (domain/use-case code).</li>
  *   <li>{@link #INTERNAL_ERROR} is <b>not throwable</b> via {@code BusinessException} —
  *       its constructor rejects {@link ErrorCategory#INTERNAL}.
- *       It is emitted only by the safety-net handler in {@code GlobalExceptionHandler}.</li>
+ *       It is emitted only by the web-adapter 5xx fallback path in
+ *       {@code GlobalExceptionHandler}.</li>
  * </ul>
  * See ADR-0005 §2.
  */
@@ -35,7 +36,7 @@ public enum ErrorCode {
      */
     VALIDATION_FAILED("VALIDATION_FAILED", ErrorCategory.INVALID_INPUT, "입력 형식이 올바르지 않습니다"),
     /**
-     * Server-internal fallback. Reserved for the safety-net handler in
+     * Server-internal fallback. Reserved for the web-adapter 5xx fallback path in
      * {@code GlobalExceptionHandler}. Do <b>not</b> throw this via {@code BusinessException}
      * — the {@code BusinessException} constructor will reject it at runtime.
      */
