@@ -4,6 +4,8 @@ import com.dunowljj.board.adapter.in.web.error.ErrorCategoryHttpStatusMapper;
 import com.dunowljj.board.common.error.BusinessException;
 import com.dunowljj.board.common.error.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpHeaders;
@@ -30,13 +32,17 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ProblemDetail> handleBusiness(BusinessException ex,
                                                         HttpServletRequest request) {
         HttpStatus status = ErrorCategoryHttpStatusMapper.toHttpStatus(ex.errorCode().category());
         ProblemDetail body = problemDetail(status, ex.errorCode().defaultMessage(),
                 request.getRequestURI(), ex.errorCode());
-        return ResponseEntity.status(status).body(body);
+        ResponseEntity<ProblemDetail> response = ResponseEntity.status(status).body(body);
+        logBusiness(ex);
+        return response;
     }
 
     @Override
@@ -46,7 +52,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         List<Map<String, String>> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(GlobalExceptionHandler::validationError)
                 .toList();
-        return validationFailed(errors, headers, status, path(request));
+        ResponseEntity<Object> response = validationFailed(errors, headers, status, path(request));
+        logValidationFailed(errors);
+        return response;
     }
 
     @Override
@@ -57,16 +65,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         // not a client input error. Respond as INTERNAL_ERROR directly. VALIDATION_FAILED
         // is reserved for client-input (request parameter / @RequestBody) violations only.
         if (ex.isForReturnValue()) {
-            ProblemDetail body = problemDetail(HttpStatus.INTERNAL_SERVER_ERROR,
+            ProblemDetail body = problemDetail(status,
                     ErrorCode.INTERNAL_ERROR.defaultMessage(),
                     path(request), ErrorCode.INTERNAL_ERROR);
-            return new ResponseEntity<>(body, headers, HttpStatus.INTERNAL_SERVER_ERROR);
+            ResponseEntity<Object> response = new ResponseEntity<>(body, headers, status);
+            logInternalError("return-value validation failed", ex);
+            return response;
         }
         List<Map<String, String>> errors = ex.getParameterValidationResults().stream()
                 .flatMap(result -> result.getResolvableErrors().stream()
                         .map(error -> validationError(fieldName(result), reason(error))))
                 .toList();
-        return validationFailed(errors, headers, status, path(request));
+        ResponseEntity<Object> response = validationFailed(errors, headers, status, path(request));
+        logValidationFailed(errors);
+        return response;
     }
 
     /**
@@ -89,6 +101,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 ? ErrorCode.MALFORMED_REQUEST
                 : ErrorCode.INTERNAL_ERROR;
         enrich(pd, path, errorCode);
+        if (statusCode.is4xxClientError()) {
+            logMalformedRequest(ex);
+        } else {
+            logInternalError("framework exception", ex);
+        }
         return new ResponseEntity<>(pd, headers, statusCode);
     }
 
@@ -98,7 +115,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail body = problemDetail(HttpStatus.INTERNAL_SERVER_ERROR,
                 ErrorCode.INTERNAL_ERROR.defaultMessage(),
                 request.getRequestURI(), ErrorCode.INTERNAL_ERROR);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+        ResponseEntity<ProblemDetail> response = ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+        logInternalError("unexpected exception", ex);
+        return response;
     }
 
     private static ResponseEntity<Object> validationFailed(
@@ -111,10 +130,39 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(pd, headers, statusCode);
     }
 
-    private static ProblemDetail problemDetail(HttpStatus status, String detail, String path, ErrorCode errorCode) {
+    private static ProblemDetail problemDetail(HttpStatusCode status, String detail, String path, ErrorCode errorCode) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(status, detail);
         enrich(pd, path, errorCode);
         return pd;
+    }
+
+    private static void logBusiness(BusinessException ex) {
+        log.atWarn()
+                .addKeyValue("code", ex.errorCode().code())
+                .addKeyValue("ctx", ex.context())
+                .log("business exception");
+    }
+
+    private static void logValidationFailed(List<Map<String, String>> errors) {
+        log.atWarn()
+                .addKeyValue("code", ErrorCode.VALIDATION_FAILED.code())
+                .addKeyValue("errors", errors)
+                .log("validation failed");
+    }
+
+    private static void logMalformedRequest(Exception ex) {
+        log.atWarn()
+                .addKeyValue("code", ErrorCode.MALFORMED_REQUEST.code())
+                .addKeyValue("exceptionClass", ex.getClass().getSimpleName())
+                .log("malformed request");
+    }
+
+    private static void logInternalError(String message, Exception ex) {
+        log.atError()
+                .addKeyValue("code", ErrorCode.INTERNAL_ERROR.code())
+                .addKeyValue("exceptionClass", ex.getClass().getSimpleName())
+                .setCause(ex)
+                .log(message);
     }
 
     private static Map<String, String> validationError(FieldError error) {
