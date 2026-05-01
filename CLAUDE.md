@@ -188,3 +188,48 @@ Conciseness improves reliability.
 - Alignment is prioritized over confident output
 
 Claude amplifies process; it does not replace judgment.
+
+---
+
+## 9. Branch & PR Conventions
+
+이 저장소는 작업 단위를 `Plan 구현 / 문서 결정 / 수정 / 정리`로 나누고, 브랜치명과 PR 템플릿도 이 구분을 따른다.
+
+### Branch Naming
+
+기본 형식:
+
+```text
+<type>/<slug>
+```
+
+허용 type:
+
+- `plan/`: Plan 구현
+- `docs/`: ADR/Plan 단독 변경
+- `fix/`: Plan과 무관한 버그 수정
+- `chore/`: 도구, 의존성, 포맷팅, 저장소 정리
+
+Plan 브랜치는 Plan 번호를 포함한다.
+
+```text
+plan/0005-c-observability-logging
+```
+
+### PR Templates
+
+기본 PR 템플릿은 Plan 구현 PR용이다.
+
+- `.github/pull_request_template.md`
+
+다른 유형은 상황별 템플릿을 사용한다.
+
+- `.github/PULL_REQUEST_TEMPLATE/docs-plan-adr.md`
+- `.github/PULL_REQUEST_TEMPLATE/fix.md`
+- `.github/PULL_REQUEST_TEMPLATE/chore.md`
+
+상세 사용법(URL parameter, type 선택 기준)은 `.github/PULL_REQUEST_TEMPLATE/README.md` 참조.
+
+### Squash Merge
+
+이 저장소는 squash merge를 기본으로 한다. PR 본문의 `Squash Commit Message`는 최종 squash commit message의 초안이므로, 머지 후 `git log`만 봐도 변경 의도가 읽히도록 작성한다.
