@@ -109,6 +109,24 @@ projects need the boundary more than they need the shortcut.
   `domain/<aggregate>/`. Temporary placement in `common/exception/` is
   tolerated only while explicitly called out in a Plan.
 
+## Filter Exception Boundary
+
+Servlet filters (`OncePerRequestFilter`, `Filter`) run **outside**
+`DispatcherServlet`, so `@RestControllerAdvice` (`GlobalExceptionHandler`) does
+NOT catch exceptions thrown inside a filter — the servlet container emits its
+own default 5xx page, bypassing the project's `ProblemDetail` response contract
+(ADR-0005 §4). This is also a DoS vector: a malformed `?x=%` triggers
+`URLDecoder.decode` → `IllegalArgumentException`, amplifying full-stack ERROR
+logs on every malformed request.
+
+**Rule** — filters MUST absorb client-input parsing failures internally (catch
+and route to a sentinel value such as `[invalid]`); never let the exception
+escape the chain. Filters are responsible for *observability metadata
+extraction only*; on failure they pass through to the next handler so the
+controller / `GlobalExceptionHandler` can classify the request normally.
+
+Reference: PLAN-0005-C Risks #9, ADR-0005 §7.
+
 ## CQRS Rules
 
 - Command (CUD) and Query (R) are separated at Service level
