@@ -111,6 +111,20 @@ Plan은 **상층(승인 대상)** 과 **하층(구현 재량)** 두 블록으로
 - `docs/plans/done/` — completed plans for archival
 - Status: Draft → Approved → Completed / Cancelled
 
+### Plan Archival (필수 후속 단계)
+
+Plan 구현 PR이 squash-merge된 직후, **별개 후속 커밋**으로 archival을 수행한다. 누락이 반복되어 시스템 규칙으로 격상한다.
+
+**트리거** — 매 세션 진입 시 에이전트가 `docs/plans/in-progress/` 및 `approved/`에 있는 Plan 중 구현 커밋이 main에 머지된 것이 있는지 점검한다. 발견 시, 다음 작업(새 Plan, Phase 1 Planner 등)에 진입하기 전에 archival을 먼저 처리한다.
+
+**절차** —
+1. 새 브랜치 `chore/archive-plan-NNNN[-X]` (§9 컨벤션).
+2. `git mv docs/plans/{in-progress,approved}/PLAN-NNNN-*.md docs/plans/done/`.
+3. **참조 일괄 갱신** — `grep -rn 'docs/plans/\(in-progress\|approved\)/PLAN-NNNN' docs/`의 모든 결과를 `docs/plans/done/` 경로로 치환. (다른 Plan의 Required Reading, ADR 본문, README 등.) 슬러그 멘션(`PLAN-NNNN`)은 경로 무관이므로 변경 불필요.
+4. 커밋 메시지: `chore: archive PLAN-NNNN as completed` (선례: `75f3c05`).
+
+**Block 규칙** — in-progress/ 또는 approved/에 머지 완료된 Plan이 남아 있으면 새 Plan 작업을 시작하지 않는다. lifecycle 무결성을 깨뜨리지 않기 위해 archival이 선행되어야 한다.
+
 ADR = long-term design decision. Plan = single-task execution contract.
 
 ---
