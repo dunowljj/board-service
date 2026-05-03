@@ -23,3 +23,19 @@ Superseded ADRs remain for traceability.
 - 회고 ADR이 허용된다 (Proposed → Accepted 정상 흐름).
 
 자세한 규약은 ADR-0004 §3 참조.
+
+## ADR 표준 섹션
+
+각 ADR은 다음 섹션을 갖는다. `*` 표시는 옵셔널.
+
+- `## Status` — Proposed | Accepted | Superseded
+- `## Date`
+- `## Context` — 결정이 필요해진 배경
+- `## Decision` — 채택한 정책 본문
+- `## Considered Alternatives` * — 검토했지만 채택하지 않은 다른 방향들과 그 이유
+- `## Rejected Suggestions` * — 논의 중 제안되었으나 거부된 안 (에이전트 제안 포함). 거부 사유를 한두 줄로.
+- `## Consequences` * — 채택으로 인한 trade-off, 후속 부담, 모니터링 포인트
+- `## Open Questions` * — defer 한 항목들
+
+`Rejected Suggestions`는 "왜 이 결정이 *그* 결정인지"의 근거를 남기는 자리다.
+거부된 안의 *논거 자체*가 회고·면접·후임자에게 가장 큰 가치를 가진다.
