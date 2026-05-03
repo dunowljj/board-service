@@ -22,6 +22,29 @@ Plan은 **상층(승인 대상)** 과 **하층(구현 재량)** 으로 구성한
 ## Required Reading
 ## Files to Touch
 ## Implementation Hints   (optional)
+
+<!-- 실행 중 누적: Plan 실행 도중 발생한 비자명한 결정만 시간순 append -->
+## Execution Notes   (optional, append-only during implementation)
+```
+
+### `## Execution Notes`
+
+Plan 실행 도중 발생한 **비자명한 결정**만 시간순으로 한 줄씩 append한다. 사소한 구현 디테일(변수명, 파일 위치, import 정리)은 적지 않는다. 적는 항목:
+
+- Plan 스코프 변경/축소
+- 실행 중 거부한 구현 대안과 그 사유 (예: "B 방식 검토 → X 이유로 A 채택")
+- 실행 중 발견된 새 제약·위험
+- defer/유보 결정
+
+archival 시 `done/`으로 함께 이동되어 회고 자료가 된다. 누적된 항목 중 시스템 차원의 결정이 발견되면 별도 ADR로 승격을 검토한다.
+
+형식 예:
+
+```markdown
+## Execution Notes
+
+- 2026-05-03: <한 줄 요약>
+- 2026-05-04: <한 줄 요약>
 ```
 
 ### `## Required Reading`
