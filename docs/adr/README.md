@@ -7,6 +7,7 @@
 | ADR-0003 | 아키텍처 패턴 — Clean/Hexagonal Architecture + DDD + CQRS | Accepted | PLAN-0003    |
 | ADR-0004 | 초기 단계 정책 — 단단한 골격 우선, 디테일 점진적 보강 | Proposed | PLAN-0004 (이미 done; 회고 ADR) |
 | ADR-0005 | 예외 / 에러 응답 정책                            | Proposed | PLAN-0005-A, -B, -C |
+| ADR-0006 | 테스트 전략 — 계층별 책임 분리                   | Proposed | PLAN-0006 (예정)     |
 
 Status:
 - Proposed
