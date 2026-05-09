@@ -231,3 +231,10 @@ class PostContentTest {
 ## Execution Notes
 
 <!-- 실행 중 비자명한 결정만 시간순 append. 사소한 구현 디테일은 적지 않는다. -->
+
+- 2026-05-08: 중복 정책 재검토. **Flow A(위임 인지: PostTest는 위임 살아있음 증거 1~2개, PostContentTest가 풀스펙)** 검토 → "테스트는 문서다" 관점에서 PostTest 가 Post.create 의 외부 계약을 부분만 노출하게 되어 독자가 PostContentTest 까지 읽어야 그림이 완성됨 → 거부. **Flow B(계약 우선: 둘 다 풀스펙, 의도된 중복)** 채택. 근거: 두 클래스가 독립 명세 단위이며 서로 다른 독자를 가짐.
+- 2026-05-08: `PostContent` 의 `record` 마이그레이션 + instanceof 기반 equals 로 전환하는 안 검토 → 이상적이지만 production 코드 수정이 본 Plan Scope L26("수정: 없음") 위반 → 본 PR에서 보류. 별도 작은 PR 로 분리하기로 결정.
+- 2026-05-08: equals 검증을 `EqualsVerifier.verify()` 단독으로 가는 안 검토 → "테스트는 문서다" 관점에서 동등성 *의미*(어느 필드가 동등성 기준인지)가 코드에서 안 읽힘 → 거부. **손어서트(의미 문서화) + EqualsVerifier(표준 계약 견고성) 병행** 채택. 손코드 `getClass()` 비교 때문에 `.usingGetClass()` 명시 필요 — record 마이그레이션 후 제거.
+- 2026-05-08: Plan promotion(in-progress → approved) 을 별도 커밋으로 분리하는 안 검토 → 추적 안 된 untracked 드래프트라 promotion 만의 단독 커밋이 의미 없음 → 거부. promotion + 구현을 단일 커밋으로 합침.
+- 2026-05-09: 기존 PR #10 (docs-only PLAN-0006-B 드래프트 PR, `docs/plan-0006-b-domain-application-tests` 브랜치) 발견. 본 세션의 단일 커밋 결정과 충돌 + 옛 파일명(`PLAN-0006-B-post-domain-application-tests.md`) 사용 → close (superseded by #11).
+- 2026-05-09: PostCommandServiceTest `update` 의 author 어서트가 `"author"` 리터럴을 사용 → fixture 기본값 변경 시 무관한 깨짐 위험 → `existing.getAuthor()` 캡처 방식으로 교체. fixture 결합 제거.
