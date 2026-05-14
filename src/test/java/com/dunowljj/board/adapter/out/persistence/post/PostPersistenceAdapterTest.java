@@ -65,6 +65,15 @@ class PostPersistenceAdapterTest {
         assertThat(saved.getBody()).isEqualTo("nb");
         assertThat(saved.getUpdatedAt()).isEqualTo(t2);
         assertThat(repository.count()).isEqualTo(countBefore);
+
+        // 어댑터가 save 를 누락한 채 입력을 그대로 돌려주는 결함을 감지하기 위해 adapter.findById 로 재조회.
+        // JPA merge 가 관리 엔티티의 상태를 갱신하므로 같은 세션 내 findById 가 갱신값을 반환.
+        Optional<Post> reloaded = adapter.findById(id);
+        assertThat(reloaded).isPresent();
+        assertThat(reloaded.get().getTitle()).isEqualTo("new");
+        assertThat(reloaded.get().getBody()).isEqualTo("nb");
+        assertThat(reloaded.get().getCreatedAt()).isEqualTo(t1);
+        assertThat(reloaded.get().getUpdatedAt()).isEqualTo(t2);
     }
 
     @Test
