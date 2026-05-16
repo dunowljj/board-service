@@ -279,3 +279,5 @@ class PostE2EIT {
 ## Execution Notes
 
 <!-- 실행 중 비자명한 결정만 시간순 append. 사소한 구현 디테일은 적지 않는다. -->
+
+- 2026-05-17 — Implementation Hints 의 `ObjectMapper.readTree(...)` 사용을 *기각*. 사유: Spring Boot 4 가 Jackson 3 로 업그레이드하면서 패키지가 `com.fasterxml.jackson.*` → `tools.jackson.*` 로 마이그레이션됨 (`tools.jackson.core:jackson-databind:3.0.4` 확인). Hints 의 `com.fasterxml.jackson.databind.{ObjectMapper, JsonNode}` import 가 컴파일 실패. **채택**: `com.jayway.jsonpath.JsonPath.read(json, "$.id")` 로 응답 파싱 — `json-path:2.10.0` 이 `spring-boot-starter-test` 의 transitive dep 으로 이미 클래스패스에 있어 신규 의존성 0. `Number idValue` 로 받아 `longValue()` 변환 (JsonPath 가 작은 정수를 `Integer` 로 돌려주는 분기 흡수). 슬라이스 테스트가 사용하는 Spring `MockMvcResultMatchers.jsonPath` 도 내부적으로 jayway 를 사용하므로 컨벤션 일치. *일반화*: 본 프로젝트의 테스트는 `tools.jackson.*` API 직접 import 보다 jayway JsonPath 또는 Spring matcher 를 우선.
