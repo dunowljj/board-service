@@ -2,6 +2,8 @@ package com.dunowljj.board.adapter.out.persistence.post;
 
 import com.dunowljj.board.application.common.PostPage;
 import com.dunowljj.board.domain.post.Post;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +25,9 @@ class PostPersistenceAdapterTest {
     @Autowired
     PostJpaRepository repository;
 
+    @PersistenceContext
+    EntityManager em;
+
     @Test
     @DisplayName("새 게시글을 저장하면 id 가 부여되고 createdAt/updatedAt 이 보존되어 다시 조회된다")
     void save_assigns_id_and_findById_returns_same_post() {
@@ -37,6 +42,9 @@ class PostPersistenceAdapterTest {
         assertThat(saved.getCreatedAt()).isAfterOrEqualTo(before).isBeforeOrEqualTo(after);
         assertThat(saved.getUpdatedAt()).isAfterOrEqualTo(before).isBeforeOrEqualTo(after);
 
+        // 1차 캐시 우회: findById 가 실제 DB SELECT 를 거치도록 강제 (round-trip 검증)
+        em.flush();
+        em.clear();
         Optional<Post> found = adapter.findById(saved.getId());
         assertThat(found).isPresent();
         assertThat(found.get().getId()).isEqualTo(saved.getId());
@@ -66,8 +74,9 @@ class PostPersistenceAdapterTest {
         assertThat(saved.getUpdatedAt()).isEqualTo(t2);
         assertThat(repository.count()).isEqualTo(countBefore);
 
-        // 어댑터가 save 를 누락한 채 입력을 그대로 돌려주는 결함을 감지하기 위해 adapter.findById 로 재조회.
-        // JPA merge 가 관리 엔티티의 상태를 갱신하므로 같은 세션 내 findById 가 갱신값을 반환.
+        // 1차 캐시 우회: merge 가 발행한 UPDATE 가 실제로 flush 되었는지 DB SELECT 로 검증.
+        em.flush();
+        em.clear();
         Optional<Post> reloaded = adapter.findById(id);
         assertThat(reloaded).isPresent();
         assertThat(reloaded.get().getTitle()).isEqualTo("new");
