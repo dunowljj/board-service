@@ -2,6 +2,7 @@ package com.dunowljj.board.adapter.out.persistence.post;
 
 import com.dunowljj.board.application.common.PostPage;
 import com.dunowljj.board.domain.post.Post;
+import com.dunowljj.board.domain.post.PostFixtures;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.DisplayName;
@@ -13,6 +14,7 @@ import org.springframework.context.annotation.Import;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+import static com.dunowljj.board.domain.post.PostFixtures.FIXED_NOW;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
@@ -31,16 +33,14 @@ class PostPersistenceAdapterTest {
     @Test
     @DisplayName("새 게시글을 저장하면 id 가 부여되고 createdAt/updatedAt 이 보존되어 다시 조회된다")
     void save_assigns_id_and_findById_returns_same_post() {
-        LocalDateTime before = LocalDateTime.now();
-        Post saved = adapter.save(Post.create("t", "b", "a"));
-        LocalDateTime after = LocalDateTime.now();
+        Post saved = adapter.save(Post.create(FIXED_NOW, "t", "b", "a"));
 
         assertThat(saved.getId()).isNotNull();
         assertThat(saved.getTitle()).isEqualTo("t");
         assertThat(saved.getBody()).isEqualTo("b");
         assertThat(saved.getAuthor()).isEqualTo("a");
-        assertThat(saved.getCreatedAt()).isAfterOrEqualTo(before).isBeforeOrEqualTo(after);
-        assertThat(saved.getUpdatedAt()).isAfterOrEqualTo(before).isBeforeOrEqualTo(after);
+        assertThat(saved.getCreatedAt()).isEqualTo(FIXED_NOW);
+        assertThat(saved.getUpdatedAt()).isEqualTo(FIXED_NOW);
 
         // 1차 캐시 우회: findById 가 실제 DB SELECT 를 거치도록 강제 (round-trip 검증)
         em.flush();

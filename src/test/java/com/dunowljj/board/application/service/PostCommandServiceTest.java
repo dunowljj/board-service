@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+import static com.dunowljj.board.domain.post.PostFixtures.FIXED_NOW;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -37,7 +38,7 @@ class PostCommandServiceTest {
 
     @BeforeEach
     void setUp() {
-        sut = new PostCommandService(loadPostPort, savePostPort, deletePostPort);
+        sut = new PostCommandService(PostFixtures.fixedClock(), loadPostPort, savePostPort, deletePostPort);
     }
 
     @Test
@@ -46,24 +47,24 @@ class PostCommandServiceTest {
         ArgumentCaptor<Post> captor = ArgumentCaptor.forClass(Post.class);
         when(savePostPort.save(captor.capture())).thenAnswer(inv -> inv.getArgument(0));
 
-        LocalDateTime before = LocalDateTime.now();
         sut.create(new CreatePostUseCase.CreatePostCommand("t", "b", "a"));
-        LocalDateTime after = LocalDateTime.now();
 
         Post saved = captor.getValue();
         assertThat(saved.getId()).isNull();
         assertThat(saved.getTitle()).isEqualTo("t");
         assertThat(saved.getBody()).isEqualTo("b");
         assertThat(saved.getAuthor()).isEqualTo("a");
-        assertThat(saved.getCreatedAt()).isAfterOrEqualTo(before).isBeforeOrEqualTo(after);
-        assertThat(saved.getUpdatedAt()).isEqualTo(saved.getCreatedAt());
+        assertThat(saved.getCreatedAt()).isEqualTo(FIXED_NOW);
+        assertThat(saved.getUpdatedAt()).isEqualTo(FIXED_NOW);
     }
 
     @Test
     @DisplayName("게시글을 수정하면 동일 인스턴스의 갱신된 상태가 저장 경계로 전달된다")
     void update_passes_mutated_post_to_save_port() {
-        Post existing = PostFixtures.aReconstitutedPost(42L);
-        LocalDateTime createdAt = existing.getCreatedAt();
+        // existing 의 createdAt/updatedAt 을 과거로 설정 — Application 이 캡처하는 FIXED_NOW 가
+        // 역행 금지 invariant 통과 + advances 의미 보존 (PLAN-0007 Risks #2).
+        LocalDateTime past = FIXED_NOW.minusDays(1);
+        Post existing = PostFixtures.aReconstitutedPost(42L, past, past);
         String originalAuthor = existing.getAuthor();
         when(loadPostPort.findById(42L)).thenReturn(Optional.of(existing));
         ArgumentCaptor<Post> captor = ArgumentCaptor.forClass(Post.class);
@@ -77,8 +78,8 @@ class PostCommandServiceTest {
         assertThat(saved.getTitle()).isEqualTo("t2");
         assertThat(saved.getBody()).isEqualTo("b2");
         assertThat(saved.getAuthor()).isEqualTo(originalAuthor);
-        assertThat(saved.getCreatedAt()).isEqualTo(createdAt);
-        assertThat(saved.getUpdatedAt()).isAfterOrEqualTo(createdAt);
+        assertThat(saved.getCreatedAt()).isEqualTo(past);
+        assertThat(saved.getUpdatedAt()).isEqualTo(FIXED_NOW);
     }
 
     @Test

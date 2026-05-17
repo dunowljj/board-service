@@ -12,18 +12,23 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+
 @Service
 @Transactional
 @RequiredArgsConstructor
 public class PostCommandService implements CreatePostUseCase, UpdatePostUseCase, DeletePostUseCase {
 
+    private final Clock clock;
     private final LoadPostPort loadPostPort;
     private final SavePostPort savePostPort;
     private final DeletePostPort deletePostPort;
 
     @Override
     public Post create(CreatePostCommand command) {
-        Post post = Post.create(command.title(), command.body(), command.author());
+        LocalDateTime now = LocalDateTime.now(clock);
+        Post post = Post.create(now, command.title(), command.body(), command.author());
         return savePostPort.save(post);
     }
 
@@ -31,7 +36,8 @@ public class PostCommandService implements CreatePostUseCase, UpdatePostUseCase,
     public Post update(UpdatePostCommand command) {
         Post post = loadPostPort.findById(command.id())
                 .orElseThrow(() -> new PostNotFoundException(command.id()));
-        post.updateContent(command.title(), command.body());
+        LocalDateTime now = LocalDateTime.now(clock);
+        post.updateContent(now, command.title(), command.body());
         return savePostPort.save(post);
     }
 

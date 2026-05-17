@@ -1,7 +1,9 @@
 package com.dunowljj.board.domain.post;
 
 import com.dunowljj.board.common.error.InvalidPostContentException;
+
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 public class Post {
 
@@ -20,10 +22,10 @@ public class Post {
         this.updatedAt = updatedAt;
     }
 
-    public static Post create(String title, String body, String author) {
+    public static Post create(LocalDateTime now, String title, String body, String author) {
+        Objects.requireNonNull(now, "now must not be null");
         validateAuthor(author);
         PostContent content = new PostContent(title, body);
-        LocalDateTime now = LocalDateTime.now();
         return new Post(null, content, author, now, now);
     }
 
@@ -49,9 +51,22 @@ public class Post {
         }
     }
 
-    public void updateContent(String title, String body) {
-        this.content = new PostContent(title, body);
-        this.updatedAt = LocalDateTime.now();
+    /**
+     * Replace content and advance {@code updatedAt} to {@code now}.
+     * Validates in order — {@code now} non-null, {@code now >= this.updatedAt}
+     * (no backwards travel), then content invariants. All checks complete
+     * before any mutation: a failing check leaves the aggregate unchanged
+     * (ADR-0007 §2.1).
+     */
+    public void updateContent(LocalDateTime now, String title, String body) {
+        Objects.requireNonNull(now, "now must not be null");
+        if (now.isBefore(this.updatedAt)) {
+            throw new IllegalArgumentException(
+                    "now must not be before current updatedAt (backwards travel forbidden)");
+        }
+        PostContent next = new PostContent(title, body);
+        this.content = next;
+        this.updatedAt = now;
     }
 
     public Long getId() {

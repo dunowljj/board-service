@@ -9,6 +9,7 @@ import com.dunowljj.board.application.port.in.result.PostListResult;
 import com.dunowljj.board.common.error.InvalidPostContentException;
 import com.dunowljj.board.common.error.PostNotFoundException;
 import com.dunowljj.board.domain.post.Post;
+import com.dunowljj.board.domain.post.PostFixtures;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -74,7 +75,7 @@ class PostControllerTest {
     @Test
     @DisplayName("게시글을 등록하면 입력값으로 채워진 Command 가 Input Port 로 전달되고 201 과 PostResponse 본문을 돌려준다")
     void create_passes_command_to_port_and_returns_201() throws Exception {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = PostFixtures.FIXED_NOW;
         Post fixture = Post.reconstitute(1L, "title", "body", "author", now, now);
         ArgumentCaptor<CreatePostUseCase.CreatePostCommand> captor =
                 ArgumentCaptor.forClass(CreatePostUseCase.CreatePostCommand.class);
@@ -160,7 +161,7 @@ class PostControllerTest {
     @Test
     @DisplayName("게시글을 조회하면 200 과 PostResponse 본문을 돌려준다")
     void getById_returns_200_with_response_body() throws Exception {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = PostFixtures.FIXED_NOW;
         Post fixture = Post.reconstitute(7L, "title", "body", "author", now, now);
         when(getPostUseCase.getById(7L)).thenReturn(fixture);
 
@@ -198,7 +199,7 @@ class PostControllerTest {
     @Test
     @DisplayName("게시글을 수정하면 경로 id 와 본문 값으로 채워진 Command 가 Input Port 로 전달되고 200 과 갱신된 PostResponse 를 돌려준다")
     void update_passes_command_to_port_and_returns_200() throws Exception {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = PostFixtures.FIXED_NOW;
         Post fixture = Post.reconstitute(3L, "newTitle", "newBody", "author", now, now);
         ArgumentCaptor<UpdatePostUseCase.UpdatePostCommand> captor =
                 ArgumentCaptor.forClass(UpdatePostUseCase.UpdatePostCommand.class);
@@ -292,7 +293,7 @@ class PostControllerTest {
     @Test
     @DisplayName("게시글 목록을 조회하면 200 과 PostListResponse 본문을 돌려준다")
     void list_returns_200_with_paged_response_body() throws Exception {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = PostFixtures.FIXED_NOW;
         Post p1 = Post.reconstitute(1L, "t1", "b1", "a1", now, now);
         Post p2 = Post.reconstitute(2L, "t2", "b2", "a2", now, now);
         PostListResult result = new PostListResult(List.of(p1, p2), 0, 20, 2L, 1);
