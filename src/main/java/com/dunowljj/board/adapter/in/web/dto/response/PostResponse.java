@@ -1,6 +1,7 @@
 package com.dunowljj.board.adapter.in.web.dto.response;
 
-import com.dunowljj.board.domain.post.Post;
+import com.dunowljj.board.application.port.in.result.AuditedPostResult;
+
 import java.time.LocalDateTime;
 
 public record PostResponse(
@@ -11,14 +12,14 @@ public record PostResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
-    public static PostResponse from(Post post) {
+    public static PostResponse from(AuditedPostResult result) {
         return new PostResponse(
-                post.getId(),
-                post.getTitle(),
-                post.getBody(),
-                post.getAuthor(),
-                post.getCreatedAt(),
-                post.getUpdatedAt()
+                result.id(),
+                result.title(),
+                result.body(),
+                result.author(),
+                result.createdAt(),
+                result.updatedAt()
         );
     }
 }

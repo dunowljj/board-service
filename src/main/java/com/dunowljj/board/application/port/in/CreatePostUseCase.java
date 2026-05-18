@@ -1,10 +1,10 @@
 package com.dunowljj.board.application.port.in;
 
-import com.dunowljj.board.domain.post.Post;
+import com.dunowljj.board.application.port.in.result.AuditedPostResult;
 
 public interface CreatePostUseCase {
 
-    Post create(CreatePostCommand command);
+    AuditedPostResult create(CreatePostCommand command);
 
     record CreatePostCommand(String title, String body, String author) {}
 }

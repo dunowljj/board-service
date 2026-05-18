@@ -1,10 +1,10 @@
 package com.dunowljj.board.application.port.in;
 
-import com.dunowljj.board.domain.post.Post;
+import com.dunowljj.board.application.port.in.result.AuditedPostResult;
 
 public interface UpdatePostUseCase {
 
-    Post update(UpdatePostCommand command);
+    AuditedPostResult update(UpdatePostCommand command);
 
     record UpdatePostCommand(Long id, String title, String body) {}
 }

@@ -1,8 +1,10 @@
 package com.dunowljj.board.application.service;
 
 import com.dunowljj.board.application.common.PostPage;
+import com.dunowljj.board.application.port.in.result.AuditedPostResult;
 import com.dunowljj.board.application.port.in.result.PostListResult;
 import com.dunowljj.board.application.port.out.LoadPostPort;
+import com.dunowljj.board.application.port.out.result.AuditedPost;
 import com.dunowljj.board.common.error.PostNotFoundException;
 import com.dunowljj.board.domain.post.Post;
 import com.dunowljj.board.domain.post.PostFixtures;
@@ -16,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 import java.util.Optional;
 
+import static com.dunowljj.board.domain.post.PostFixtures.FIXED_NOW;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
@@ -33,14 +36,17 @@ class PostQueryServiceTest {
     }
 
     @Test
-    @DisplayName("식별자로 게시글을 조회하면 Port 가 반환한 Post 를 그대로 돌려준다")
-    void getById_returns_post_from_port() {
+    @DisplayName("식별자로 게시글을 조회하면 Port 가 반환한 AuditedPost 를 AuditedPostResult 로 매핑해 돌려준다")
+    void getById_returns_audited_post_result_from_port() {
         Post post = PostFixtures.aReconstitutedPost(3L);
-        when(loadPostPort.findById(3L)).thenReturn(Optional.of(post));
+        when(loadPostPort.findById(3L)).thenReturn(Optional.of(new AuditedPost(post, FIXED_NOW, FIXED_NOW)));
 
-        Post result = sut.getById(3L);
+        AuditedPostResult result = sut.getById(3L);
 
-        assertThat(result).isSameAs(post);
+        assertThat(result.id()).isEqualTo(3L);
+        assertThat(result.title()).isEqualTo("title");
+        assertThat(result.createdAt()).isEqualTo(FIXED_NOW);
+        assertThat(result.updatedAt()).isEqualTo(FIXED_NOW);
     }
 
     @Test
@@ -55,12 +61,13 @@ class PostQueryServiceTest {
     @Test
     @DisplayName("페이지 조회 결과의 totalPages 는 총 개수를 페이지 크기로 나눈 몫이다")
     void list_computes_total_pages_for_exact_division() {
-        Post p = PostFixtures.aReconstitutedPost(1L);
-        when(loadPostPort.findPage(0, 5)).thenReturn(new PostPage(List.of(p), 10L));
+        AuditedPost audited = new AuditedPost(PostFixtures.aReconstitutedPost(1L), FIXED_NOW, FIXED_NOW);
+        when(loadPostPort.findPage(0, 5)).thenReturn(new PostPage(List.of(audited), 10L));
 
         PostListResult result = sut.list(0, 5);
 
-        assertThat(result.posts()).containsExactly(p);
+        assertThat(result.posts()).hasSize(1);
+        assertThat(result.posts().get(0).id()).isEqualTo(1L);
         assertThat(result.page()).isZero();
         assertThat(result.size()).isEqualTo(5);
         assertThat(result.totalElements()).isEqualTo(10L);
