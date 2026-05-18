@@ -1,16 +1,20 @@
 package com.dunowljj.board.adapter.out.persistence.post;
 
 import com.dunowljj.board.application.common.PostPage;
+import com.dunowljj.board.application.port.out.result.AuditedPost;
+import com.dunowljj.board.config.MutableClock;
+import com.dunowljj.board.config.TestAuditConfig;
+import com.dunowljj.board.config.TimeConfig;
 import com.dunowljj.board.domain.post.Post;
 import com.dunowljj.board.domain.post.PostFixtures;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -18,113 +22,120 @@ import static com.dunowljj.board.domain.post.PostFixtures.FIXED_NOW;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@Import(PostPersistenceAdapter.class)
+@Import({PostPersistenceAdapter.class, TimeConfig.class, TestAuditConfig.class})
 class PostPersistenceAdapterTest {
 
     @Autowired
     PostPersistenceAdapter adapter;
 
     @Autowired
-    PostJpaRepository repository;
+    MutableClock clock;
 
-    @PersistenceContext
-    EntityManager em;
-
-    @Test
-    @DisplayName("새 게시글을 저장하면 id 가 부여되고 createdAt/updatedAt 이 보존되어 다시 조회된다")
-    void save_assigns_id_and_findById_returns_same_post() {
-        Post saved = adapter.save(Post.create(FIXED_NOW, "t", "b", "a"));
-
-        assertThat(saved.getId()).isNotNull();
-        assertThat(saved.getTitle()).isEqualTo("t");
-        assertThat(saved.getBody()).isEqualTo("b");
-        assertThat(saved.getAuthor()).isEqualTo("a");
-        assertThat(saved.getCreatedAt()).isEqualTo(FIXED_NOW);
-        assertThat(saved.getUpdatedAt()).isEqualTo(FIXED_NOW);
-
-        // 1차 캐시 우회: findById 가 실제 DB SELECT 를 거치도록 강제 (round-trip 검증)
-        em.flush();
-        em.clear();
-        Optional<Post> found = adapter.findById(saved.getId());
-        assertThat(found).isPresent();
-        assertThat(found.get().getId()).isEqualTo(saved.getId());
-        assertThat(found.get().getTitle()).isEqualTo("t");
-        assertThat(found.get().getBody()).isEqualTo("b");
-        assertThat(found.get().getAuthor()).isEqualTo("a");
-        assertThat(found.get().getCreatedAt()).isEqualTo(saved.getCreatedAt());
-        assertThat(found.get().getUpdatedAt()).isEqualTo(saved.getUpdatedAt());
+    /**
+     * MutableClock 은 Spring context 의 단일 빈 인스턴스로 모든 테스트에 공유된다.
+     * {@code @DataJpaTest} 의 DB rollback 은 *bean 상태* 를 되돌리지 않으므로,
+     * 이전 테스트의 {@code advance}/{@code setTo} 가 다음 테스트로 누수되지 않게
+     * 매 테스트 진입 시 초기값으로 명시 리셋 (ADR-0006 §5 의 결정성 원칙).
+     */
+    @BeforeEach
+    void resetClock() {
+        clock.setTo(PostFixtures.FIXED_NOW);
     }
 
     @Test
-    @DisplayName("기존 id 를 가진 도메인을 저장하면 동일 id 로 업데이트되어 row 수가 유지된다")
-    void save_updates_in_place_when_id_present() {
-        LocalDateTime t1 = LocalDateTime.of(2026, 1, 1, 0, 0);
-        PostJpaEntity persisted = repository.save(
-                new PostJpaEntity(null, "old", "ob", "oa", t1, t1));
-        Long id = persisted.getId();
-        long countBefore = repository.count();
+    @DisplayName("새 게시글을 저장하면 id 가 부여되고 audit listener 가 createdAt/updatedAt 을 FIXED_NOW 로 채운다")
+    void create_assigns_id_and_audit_listener_fills_timestamps() {
+        AuditedPost saved = adapter.create(Post.create("t", "b", "a"));
 
-        LocalDateTime t2 = LocalDateTime.of(2026, 1, 2, 0, 0);
-        Post toUpdate = Post.reconstitute(id, "new", "nb", "oa", t1, t2);
-        Post saved = adapter.save(toUpdate);
+        assertThat(saved.post().getId()).isNotNull();
+        assertThat(saved.post().getTitle()).isEqualTo("t");
+        assertThat(saved.post().getBody()).isEqualTo("b");
+        assertThat(saved.post().getAuthor()).isEqualTo("a");
+        assertThat(saved.createdAt()).isEqualTo(FIXED_NOW);
+        assertThat(saved.updatedAt()).isEqualTo(FIXED_NOW);
 
-        assertThat(saved.getId()).isEqualTo(id);
-        assertThat(saved.getTitle()).isEqualTo("new");
-        assertThat(saved.getBody()).isEqualTo("nb");
-        assertThat(saved.getUpdatedAt()).isEqualTo(t2);
-        assertThat(repository.count()).isEqualTo(countBefore);
+        Optional<AuditedPost> found = adapter.findById(saved.post().getId());
+        assertThat(found).isPresent();
+        assertThat(found.get().post().getTitle()).isEqualTo("t");
+        assertThat(found.get().createdAt()).isEqualTo(FIXED_NOW);
+        assertThat(found.get().updatedAt()).isEqualTo(FIXED_NOW);
+    }
 
-        // 1차 캐시 우회: merge 가 발행한 UPDATE 가 실제로 flush 되었는지 DB SELECT 로 검증.
-        em.flush();
-        em.clear();
-        Optional<Post> reloaded = adapter.findById(id);
-        assertThat(reloaded).isPresent();
-        assertThat(reloaded.get().getTitle()).isEqualTo("new");
-        assertThat(reloaded.get().getBody()).isEqualTo("nb");
-        assertThat(reloaded.get().getCreatedAt()).isEqualTo(t1);
-        assertThat(reloaded.get().getUpdatedAt()).isEqualTo(t2);
+    @Test
+    @DisplayName("기존 게시글을 갱신하면 동일 id 로 갱신되고 createdAt 은 보존되며 updatedAt 은 새 시점으로 진행한다")
+    void update_keeps_createdAt_and_advances_updatedAt() {
+        AuditedPost created = adapter.create(Post.create("old-title", "old-body", "a"));
+        Long id = created.post().getId();
+        LocalDateTime createdAt = created.createdAt();
+
+        clock.advance(Duration.ofMinutes(1));
+        LocalDateTime later = LocalDateTime.now(clock);
+
+        AuditedPost updated = adapter.update(Post.reconstitute(id, "new-title", "new-body", "a"));
+
+        assertThat(updated.post().getId()).isEqualTo(id);
+        assertThat(updated.post().getTitle()).isEqualTo("new-title");
+        assertThat(updated.post().getBody()).isEqualTo("new-body");
+        assertThat(updated.createdAt()).isEqualTo(createdAt);
+        assertThat(updated.updatedAt()).isEqualTo(later);
+    }
+
+    @Test
+    @DisplayName("동일 내용 update 시 dirty 가 없어 updatedAt 이 변경되지 않는다 (no-op)")
+    void update_with_same_content_keeps_updatedAt() {
+        AuditedPost created = adapter.create(Post.create("t", "b", "a"));
+        Long id = created.post().getId();
+        LocalDateTime originalUpdatedAt = created.updatedAt();
+
+        clock.advance(Duration.ofMinutes(1));
+
+        AuditedPost updated = adapter.update(Post.reconstitute(id, "t", "b", "a"));
+
+        assertThat(updated.updatedAt()).isEqualTo(originalUpdatedAt);
     }
 
     @Test
     @DisplayName("존재하지 않는 id 로 조회하면 빈 Optional 을 돌려준다")
     void findById_returns_empty_when_not_found() {
-        Optional<Post> found = adapter.findById(9_999L);
+        Optional<AuditedPost> found = adapter.findById(9_999L);
 
         assertThat(found).isEmpty();
     }
 
     @Test
-    @DisplayName("findPage 는 createdAt 내림차순으로 첫 페이지 항목과 totalElements 를 돌려준다")
-    void findPage_returns_first_page_ordered_by_createdAt_desc() {
-        LocalDateTime older = LocalDateTime.of(2026, 1, 1, 0, 0);
-        LocalDateTime mid = LocalDateTime.of(2026, 1, 2, 0, 0);
-        LocalDateTime newer = LocalDateTime.of(2026, 1, 3, 0, 0);
-        repository.save(new PostJpaEntity(null, "old", "b", "a", older, older));
-        repository.save(new PostJpaEntity(null, "mid", "b", "a", mid, mid));
-        repository.save(new PostJpaEntity(null, "new", "b", "a", newer, newer));
+    @DisplayName("findPage 는 createdAt 내림차순 + id 내림차순 tie-breaker 로 첫 페이지를 돌려준다")
+    void findPage_returns_first_page_ordered_by_createdAt_desc_id_desc() {
+        clock.setTo(LocalDateTime.of(2026, 1, 1, 0, 0));
+        adapter.create(Post.create("old", "b", "a"));
+        clock.setTo(LocalDateTime.of(2026, 1, 2, 0, 0));
+        adapter.create(Post.create("mid", "b", "a"));
+        clock.setTo(LocalDateTime.of(2026, 1, 3, 0, 0));
+        adapter.create(Post.create("new", "b", "a"));
 
         PostPage page = adapter.findPage(0, 2);
 
         assertThat(page.totalElements()).isEqualTo(3);
         assertThat(page.items()).hasSize(2);
-        assertThat(page.items()).extracting(Post::getTitle).containsExactly("new", "mid");
+        assertThat(page.items()).extracting(audited -> audited.post().getTitle())
+                .containsExactly("new", "mid");
     }
 
     @Test
     @DisplayName("findPage 두 번째 페이지는 남은 항목과 동일한 totalElements 를 돌려준다")
     void findPage_returns_second_page_with_remaining_items() {
-        LocalDateTime older = LocalDateTime.of(2026, 1, 1, 0, 0);
-        LocalDateTime mid = LocalDateTime.of(2026, 1, 2, 0, 0);
-        LocalDateTime newer = LocalDateTime.of(2026, 1, 3, 0, 0);
-        repository.save(new PostJpaEntity(null, "old", "b", "a", older, older));
-        repository.save(new PostJpaEntity(null, "mid", "b", "a", mid, mid));
-        repository.save(new PostJpaEntity(null, "new", "b", "a", newer, newer));
+        clock.setTo(LocalDateTime.of(2026, 1, 1, 0, 0));
+        adapter.create(Post.create("old", "b", "a"));
+        clock.setTo(LocalDateTime.of(2026, 1, 2, 0, 0));
+        adapter.create(Post.create("mid", "b", "a"));
+        clock.setTo(LocalDateTime.of(2026, 1, 3, 0, 0));
+        adapter.create(Post.create("new", "b", "a"));
 
         PostPage page = adapter.findPage(1, 2);
 
         assertThat(page.totalElements()).isEqualTo(3);
         assertThat(page.items()).hasSize(1);
-        assertThat(page.items()).extracting(Post::getTitle).containsExactly("old");
+        assertThat(page.items()).extracting(audited -> audited.post().getTitle())
+                .containsExactly("old");
     }
 
     @Test
@@ -139,10 +150,8 @@ class PostPersistenceAdapterTest {
     @Test
     @DisplayName("존재하는 id 를 삭제하면 row-count 1 을 돌려준다")
     void deleteById_returns_one_when_row_exists() {
-        LocalDateTime now = LocalDateTime.of(2026, 1, 1, 0, 0);
-        PostJpaEntity persisted = repository.save(
-                new PostJpaEntity(null, "t", "b", "a", now, now));
-        Long id = persisted.getId();
+        AuditedPost created = adapter.create(Post.create("t", "b", "a"));
+        Long id = created.post().getId();
 
         int affected = adapter.deleteById(id);
 

@@ -1,8 +1,8 @@
 package com.dunowljj.board.application.port.in;
 
-import com.dunowljj.board.domain.post.Post;
+import com.dunowljj.board.application.port.in.result.AuditedPostResult;
 
 public interface GetPostUseCase {
 
-    Post getById(Long id);
+    AuditedPostResult getById(Long id);
 }

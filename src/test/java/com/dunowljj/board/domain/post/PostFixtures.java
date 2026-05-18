@@ -27,14 +27,10 @@ public final class PostFixtures {
     }
 
     public static Post aValidPost() {
-        return Post.create(FIXED_NOW, "title", "body", "author");
+        return Post.create("title", "body", "author");
     }
 
     public static Post aReconstitutedPost(Long id) {
-        return Post.reconstitute(id, "title", "body", "author", FIXED_NOW, FIXED_NOW);
-    }
-
-    public static Post aReconstitutedPost(Long id, LocalDateTime createdAt, LocalDateTime updatedAt) {
-        return Post.reconstitute(id, "title", "body", "author", createdAt, updatedAt);
+        return Post.reconstitute(id, "title", "body", "author");
     }
 }
