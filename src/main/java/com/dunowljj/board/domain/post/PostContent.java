@@ -3,7 +3,7 @@ package com.dunowljj.board.domain.post;
 import com.dunowljj.board.common.error.InvalidPostContentException;
 import java.util.Objects;
 
-public class PostContent {
+public final class PostContent {
 
     private final String title;
     private final String body;
@@ -30,8 +30,7 @@ public class PostContent {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        PostContent that = (PostContent) o;
+        if (!(o instanceof PostContent that)) return false;
         return Objects.equals(title, that.title) && Objects.equals(body, that.body);
     }
 
