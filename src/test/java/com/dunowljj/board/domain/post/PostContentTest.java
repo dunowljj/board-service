@@ -61,7 +61,6 @@ class PostContentTest {
     @DisplayName("equals 와 hashCode 는 title·body 기준 계약을 만족한다")
     void equals_and_hashCode_contract() {
         EqualsVerifier.forClass(PostContent.class)
-                .usingGetClass()
                 .withOnlyTheseFields("title", "body")
                 .verify();
     }
