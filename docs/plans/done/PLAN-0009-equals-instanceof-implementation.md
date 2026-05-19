@@ -25,7 +25,7 @@ ADR-0009 §1/§2/§3 의 *직접 구현*. 구체적으로:
 
 ### Not Included
 
-- **`PostContent` → record 전환** — ADR-0010 슬롯 (별도 ADR + Plan).
+- **`PostContent` → record 전환** — 현재 미채택. `final class + instanceof equals` 로 본 Plan 의 목적은 충분하며, record 전환은 accessor / API 변경과 VO 표현 방식 정책 결정을 동반하므로 후속 필요가 생길 때 재검토.
 - **`Post` Aggregate equality 정책** — PLAN-0004 의 보류 결정 회수, 별도 ADR.
 - **`PostJpaEntity` equality 정책** — Hibernate proxy 호환성 묶임, 별도 ADR.
 - **ADR-0003 `§"Equality Policy"` 부재 정정** — 문서 유지보수 영역, 별도 작업.
@@ -91,7 +91,7 @@ no — ADR-0009 가 권위. 본 Plan 은 §1/§2/§3 의 *직접 구현*. 새로
 ### Pre-resolved
 
 - **ADR-0009 §4 의 "순수 도메인 VO 한정"** — 본 Plan 의 적용 대상이 *PostContent* 1 자리. JPA entity / persistence layer equality 미포함 명시.
-- **record 전환 미포함** — ADR-0010 슬롯.
+- **record 전환 미포함** — 현재 미채택 (별도 ADR 슬롯 아님). 후속 VO 반복 비용이 커질 때 재검토.
 
 ## Implementation Hints
 

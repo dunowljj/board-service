@@ -238,3 +238,4 @@ class PostContentTest {
 - 2026-05-08: Plan promotion(in-progress → approved) 을 별도 커밋으로 분리하는 안 검토 → 추적 안 된 untracked 드래프트라 promotion 만의 단독 커밋이 의미 없음 → 거부. promotion + 구현을 단일 커밋으로 합침.
 - 2026-05-09: 기존 PR #10 (docs-only PLAN-0006-B 드래프트 PR, `docs/plan-0006-b-domain-application-tests` 브랜치) 발견. 본 세션의 단일 커밋 결정과 충돌 + 옛 파일명(`PLAN-0006-B-post-domain-application-tests.md`) 사용 → close (superseded by #11).
 - 2026-05-09: PostCommandServiceTest `update` 의 author 어서트가 `"author"` 리터럴을 사용 → fixture 기본값 변경 시 무관한 깨짐 위험 → `existing.getAuthor()` 캡처 방식으로 교체. fixture 결합 제거.
+- 2026-05-19: PLAN-0009 (ADR-0009) 에서 *instanceof + final 부분* 만 회수하고, *record 전환은 현재 미채택*. 사유: `final class + instanceof equals + EqualsVerifier` 로 컨벤션 목적은 충분히 달성. record 도입은 accessor 변경 (`getTitle()` / `getBody()` → `title()` / `body()`) 과 VO 표현 방식 기본값 결정까지 동반해 현 단계 이득 대비 비용이 큼. 후속 VO 가 늘어나 반복 비용이 실제로 커질 때 재검토.
