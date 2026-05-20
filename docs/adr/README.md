@@ -11,7 +11,7 @@
 | ADR-0007 | 시간 정책 — `Clock` 주입과 결정적 시간 의식       | Proposed | PLAN-0007            |
 | ADR-0008 | 감사 데이터 정책 — JPA Auditing 도입과 도메인 timestamp 제거 | Proposed | PLAN-0008            |
 | ADR-0009 | equals/hashCode 코드 컨벤션 — `instanceof` pattern matching 통일 | Proposed | PLAN-0009            |
-| ADR-0010 | 로컬 개발 / 테스트용 DB 인프라 — Docker + Testcontainers + PostgreSQL/pgvector | Proposed | PLAN-0010 (예정)     |
+| ADR-0010 | 로컬 개발 / 테스트용 DB 인프라 — Docker + Testcontainers + PostgreSQL/pgvector | Proposed | PLAN-0010            |
 
 Status:
 - Proposed

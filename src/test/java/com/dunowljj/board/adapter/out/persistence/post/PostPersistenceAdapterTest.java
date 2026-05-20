@@ -3,6 +3,7 @@ package com.dunowljj.board.adapter.out.persistence.post;
 import com.dunowljj.board.application.common.PostPage;
 import com.dunowljj.board.application.port.out.result.AuditedPost;
 import com.dunowljj.board.config.MutableClock;
+import com.dunowljj.board.config.PostgresTestcontainersConfig;
 import com.dunowljj.board.config.TestAuditConfig;
 import com.dunowljj.board.config.TimeConfig;
 import com.dunowljj.board.domain.post.Post;
@@ -22,7 +23,7 @@ import static com.dunowljj.board.domain.post.PostFixtures.FIXED_NOW;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-@Import({PostPersistenceAdapter.class, TimeConfig.class, TestAuditConfig.class})
+@Import({PostPersistenceAdapter.class, TimeConfig.class, TestAuditConfig.class, PostgresTestcontainersConfig.class})
 class PostPersistenceAdapterTest {
 
     @Autowired
