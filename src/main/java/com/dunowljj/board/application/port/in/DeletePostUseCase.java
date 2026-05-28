@@ -2,5 +2,7 @@ package com.dunowljj.board.application.port.in;
 
 public interface DeletePostUseCase {
 
-    void delete(Long id);
+    void delete(DeletePostCommand command);
+
+    record DeletePostCommand(Long id, Long actorUserId) {}
 }

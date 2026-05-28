@@ -8,7 +8,8 @@ public record PostResponse(
         Long id,
         String title,
         String body,
-        String author,
+        Long authorId,
+        String authorNickname,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -17,7 +18,8 @@ public record PostResponse(
                 result.id(),
                 result.title(),
                 result.body(),
-                result.author(),
+                result.authorId(),
+                result.authorNickname(),
                 result.createdAt(),
                 result.updatedAt()
         );

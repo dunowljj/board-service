@@ -25,16 +25,16 @@ public class PostPersistenceAdapter
 
     @Override
     public Optional<AuditedPost> findById(Long id) {
-        return postJpaRepository.findById(id)
-                .map(PostMapper::toAuditedPost);
+        return postJpaRepository.findByIdWithAuthor(id)
+                .map(pwa -> PostMapper.toAuditedPost(pwa.post(), pwa.authorNickname()));
     }
 
     @Override
     public PostPage findPage(int page, int size) {
-        Page<PostJpaEntity> postsPage = postJpaRepository
-                .findAllByOrderByCreatedAtDescIdDesc(PageRequest.of(page, size));
+        Page<PostWithAuthor> postsPage = postJpaRepository
+                .findAllWithAuthor(PageRequest.of(page, size));
         List<AuditedPost> items = postsPage.getContent().stream()
-                .map(PostMapper::toAuditedPost)
+                .map(pwa -> PostMapper.toAuditedPost(pwa.post(), pwa.authorNickname()))
                 .toList();
         return new PostPage(items, postsPage.getTotalElements());
     }
@@ -43,7 +43,7 @@ public class PostPersistenceAdapter
     public AuditedPost create(Post post) {
         PostJpaEntity entity = PostMapper.toEntity(post);
         PostJpaEntity saved = postJpaRepository.save(entity);
-        return PostMapper.toAuditedPost(saved);
+        return loadAudited(saved.getId());
     }
 
     /**
@@ -57,11 +57,17 @@ public class PostPersistenceAdapter
                 .orElseThrow(() -> new PostNotFoundException(post.getId()));
         existing.update(post.getTitle(), post.getBody());
         PostJpaEntity saved = postJpaRepository.saveAndFlush(existing);
-        return PostMapper.toAuditedPost(saved);
+        return loadAudited(saved.getId());
     }
 
     @Override
     public int deleteById(Long id) {
         return postJpaRepository.deletePostById(id);
+    }
+
+    private AuditedPost loadAudited(Long postId) {
+        return postJpaRepository.findByIdWithAuthor(postId)
+                .map(pwa -> PostMapper.toAuditedPost(pwa.post(), pwa.authorNickname()))
+                .orElseThrow(() -> new PostNotFoundException(postId));
     }
 }

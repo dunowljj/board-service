@@ -8,17 +8,17 @@ public class PostMapper {
     private PostMapper() {}
 
     /**
-     * entity → AuditedPost. 도메인 Post 와 audit metadata 를 합성. 도메인은
-     * audit 을 모르므로 mapper 가 별도 합성 (ADR-0008 §4).
+     * entity + author nickname → AuditedPost. 도메인 Post + audit metadata + author 표시명 합성
+     * (ADR-0008 §4, PLAN-0011 §7).
      */
-    public static AuditedPost toAuditedPost(PostJpaEntity entity) {
+    public static AuditedPost toAuditedPost(PostJpaEntity entity, String authorNickname) {
         Post post = Post.reconstitute(
                 entity.getId(),
                 entity.getTitle(),
                 entity.getBody(),
-                entity.getAuthor()
+                entity.getAuthorId()
         );
-        return new AuditedPost(post, entity.getCreatedAt(), entity.getUpdatedAt());
+        return new AuditedPost(post, authorNickname, entity.getCreatedAt(), entity.getUpdatedAt());
     }
 
     /**
@@ -30,7 +30,7 @@ public class PostMapper {
                 post.getId(),
                 post.getTitle(),
                 post.getBody(),
-                post.getAuthor()
+                post.getAuthorId()
         );
     }
 }

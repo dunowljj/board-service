@@ -6,5 +6,5 @@ public interface UpdatePostUseCase {
 
     AuditedPostResult update(UpdatePostCommand command);
 
-    record UpdatePostCommand(Long id, String title, String body) {}
+    record UpdatePostCommand(Long id, String title, String body, Long actorUserId) {}
 }

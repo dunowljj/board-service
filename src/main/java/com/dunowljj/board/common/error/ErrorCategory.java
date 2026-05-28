@@ -4,6 +4,7 @@ public enum ErrorCategory {
     NOT_FOUND,
     INVALID_INPUT,
     CONFLICT,
+    UNAUTHORIZED,
     FORBIDDEN,
     INTERNAL
 }

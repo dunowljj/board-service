@@ -6,5 +6,5 @@ public interface CreatePostUseCase {
 
     AuditedPostResult create(CreatePostCommand command);
 
-    record CreatePostCommand(String title, String body, String author) {}
+    record CreatePostCommand(String title, String body, Long actorUserId) {}
 }

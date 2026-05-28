@@ -25,14 +25,14 @@ public class PostQueryService implements GetPostUseCase, ListPostsUseCase {
     public AuditedPostResult getById(Long id) {
         AuditedPost loaded = loadPostPort.findById(id)
                 .orElseThrow(() -> new PostNotFoundException(id));
-        return AuditedPostResult.from(loaded.post(), loaded.createdAt(), loaded.updatedAt());
+        return AuditedPostResult.from(loaded.post(), loaded.authorNickname(), loaded.createdAt(), loaded.updatedAt());
     }
 
     @Override
     public PostListResult list(int page, int size) {
         PostPage postPage = loadPostPort.findPage(page, size);
         List<AuditedPostResult> posts = postPage.items().stream()
-                .map(audited -> AuditedPostResult.from(audited.post(), audited.createdAt(), audited.updatedAt()))
+                .map(a -> AuditedPostResult.from(a.post(), a.authorNickname(), a.createdAt(), a.updatedAt()))
                 .toList();
         int totalPages = size <= 0 ? 0 : (int) Math.ceil((double) postPage.totalElements() / size);
         return new PostListResult(posts, page, size, postPage.totalElements(), totalPages);

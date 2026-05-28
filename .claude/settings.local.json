@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(wc:*)",
-      "Bash(xargs -I {} jar tf {})"
+      "Bash(xargs -I {} jar tf {})",
+      "Bash(./gradlew test *)"
     ]
   }
 }

@@ -35,8 +35,8 @@ public class PostJpaEntity {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String body;
 
-    @Column(nullable = false)
-    private String author;
+    @Column(name = "author_id", nullable = false)
+    private Long authorId;
 
     @CreatedDate
     @Column(nullable = false, updatable = false)
@@ -48,11 +48,11 @@ public class PostJpaEntity {
 
     protected PostJpaEntity() {}
 
-    public PostJpaEntity(Long id, String title, String body, String author) {
+    public PostJpaEntity(Long id, String title, String body, Long authorId) {
         this.id = id;
         this.title = title;
         this.body = body;
-        this.author = author;
+        this.authorId = authorId;
         // createdAt/updatedAt — AuditingEntityListener 가 채운다.
     }
 
@@ -69,7 +69,7 @@ public class PostJpaEntity {
     public Long getId() { return id; }
     public String getTitle() { return title; }
     public String getBody() { return body; }
-    public String getAuthor() { return author; }
+    public Long getAuthorId() { return authorId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

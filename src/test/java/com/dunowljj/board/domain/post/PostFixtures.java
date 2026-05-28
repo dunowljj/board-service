@@ -8,6 +8,7 @@ public final class PostFixtures {
 
     private static final Clock FIXED_CLOCK = fixedClockAt(LocalDateTime.of(2026, 5, 17, 10, 0));
     public static final LocalDateTime FIXED_NOW = LocalDateTime.now(FIXED_CLOCK);
+    public static final Long DEFAULT_AUTHOR_ID = 1L;
 
     private PostFixtures() {}
 
@@ -27,10 +28,10 @@ public final class PostFixtures {
     }
 
     public static Post aValidPost() {
-        return Post.create("title", "body", "author");
+        return Post.create("title", "body", DEFAULT_AUTHOR_ID);
     }
 
     public static Post aReconstitutedPost(Long id) {
-        return Post.reconstitute(id, "title", "body", "author");
+        return Post.reconstitute(id, "title", "body", DEFAULT_AUTHOR_ID);
     }
 }

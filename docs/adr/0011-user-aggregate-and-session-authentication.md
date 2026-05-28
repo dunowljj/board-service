@@ -3,6 +3,8 @@
 ## Status
 Proposed
 
+**Amended 2026-06-07**: §4 로그인 구현 방식을 custom authentication filter 로 확정 — §4 가 열어둔 controller/filter 택일 중 filter 채택(초기 PLAN-0011 컨트롤러 구현에서 정정). 미shipped·in-flight 초기 결정이라 supersede ADR 대신 제자리 개정.
+
 ## Date
 2026-05-24
 
@@ -91,10 +93,10 @@ Proposed
   - password 정책 (§5)
   - email *전역 unique* / nicknameCanonical *전역 unique* (§1 정합) — DB constraint 위반 시 *409 Conflict + ProblemDetail* (`DUPLICATE_EMAIL` / `DUPLICATE_NICKNAME` 후보, §4b)
   - 성공 시 password BCrypt 해시 + User 저장 + *201 Created* 응답
-- **`POST /api/auth/login`** — `{email, password}` 입력. password 검증 → 성공 시 session 생성 + JSESSIONID 발급. 실패 시 *401 Unauthorized + ProblemDetail*. **JSON 커스텀 REST endpoint** (Spring Security `formLogin` 기본 흐름 아님) — `SecurityContext` 가 session 에 저장되려면 `SecurityContextRepository` (또는 `HttpSessionSecurityContextRepository`) 명시 처리 필수. PLAN-0011 의 필수 결정 항목 — *수동 저장 누락 시 인증 성공해도 다음 요청 비인증* 회귀
-  - 로그인 실패 예외는 `GlobalExceptionHandler` catch-all 로 흐르면 안 됨. `AuthenticationManager.authenticate()` 실패 등 커스텀 로그인 내부의 `AuthenticationException` 은 **반드시 401 + ProblemDetail (`AUTHENTICATION_FAILED` 후보, §4b 카탈로그 — PLAN-0011 확정) 로 직접 변환**한다. 구현 방식은 PLAN-0011 에서 택일:
-    - controller/service 로그인 방식이면 `AuthenticationException` 을 login endpoint 내부에서 catch 후 ProblemDetail 응답
-    - custom authentication filter 방식이면 `AuthenticationFailureHandler` 로 ProblemDetail 응답
+- **`POST /api/auth/login`** — `{email, password}` (JSON) 입력. password 검증 → 성공 시 session 생성 + JSESSIONID 발급, 실패 시 *401 Unauthorized + ProblemDetail*. **custom authentication filter 방식 채택** — `AbstractAuthenticationProcessingFilter` 확장, `/api/auth/login` POST 매칭, JSON body 파싱. Spring Security `formLogin`(form-urlencoded 전제) 미사용.
+  - **결정 근거 (2026-06-07, 초기 PLAN-0011 컨트롤러 방식에서 정정)**: 커스텀 컨트롤러 방식은 session fixation 재발급(`changeSessionId`)·`SecurityContextRepository.saveContext` 를 *수동* 호출해야 하므로 누락 시 *인증 성공해도 다음 요청 비인증* 회귀가 조용히 발생. 필터 방식은 `SessionAuthenticationStrategy`(session fixation 방어)·`SecurityContextRepository`(SecurityContext 의 session 영속)를 **프레임워크가 보장**한다.
+  - 인증 성공은 `AuthenticationSuccessHandler` → *204 No Content*. 실패(`AuthenticationException`)는 `AuthenticationFailureHandler` → **401 + ProblemDetail (`AUTHENTICATION_FAILED`)** 로 직접 변환 — `GlobalExceptionHandler` catch-all 로 흐르면 안 됨.
+  - `SecurityContext` 의 session 저장은 필터 체인의 `SecurityContextRepository` 가 담당 — **수동 `saveContext` 불필요**.
   - 기본 `formLogin` failure redirect / 빈 응답 / catch-all 500 은 ADR-0005 응답 계약 위반으로 금지
 - **`POST /api/auth/logout`** — session invalidate. *204 No Content*
 
