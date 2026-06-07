@@ -15,7 +15,7 @@ public interface PostJpaRepository extends JpaRepository<PostJpaEntity, Long> {
      * post + author nickname 한 query (PLAN-0011 §7). users join 으로 N+1 회피.
      */
     @Query("SELECT new com.dunowljj.board.adapter.out.persistence.post.PostWithAuthor(p, u.nickname) " +
-            "FROM PostJpaEntity p JOIN com.dunowljj.board.adapter.out.persistence.user.UserJpaEntity u " +
+            "FROM PostJpaEntity p JOIN UserJpaEntity u " +
             "ON p.authorId = u.id WHERE p.id = :id")
     Optional<PostWithAuthor> findByIdWithAuthor(@Param("id") Long id);
 
@@ -27,7 +27,7 @@ public interface PostJpaRepository extends JpaRepository<PostJpaEntity, Long> {
      * <p>author nickname 까지 join projection 으로 한 query (PLAN-0011 §7).
      */
     @Query(value = "SELECT new com.dunowljj.board.adapter.out.persistence.post.PostWithAuthor(p, u.nickname) " +
-            "FROM PostJpaEntity p JOIN com.dunowljj.board.adapter.out.persistence.user.UserJpaEntity u " +
+            "FROM PostJpaEntity p JOIN UserJpaEntity u " +
             "ON p.authorId = u.id ORDER BY p.createdAt DESC, p.id DESC",
             countQuery = "SELECT COUNT(p) FROM PostJpaEntity p")
     Page<PostWithAuthor> findAllWithAuthor(Pageable pageable);

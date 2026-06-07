@@ -15,11 +15,13 @@ import com.dunowljj.board.domain.user.Email;
 import com.dunowljj.board.domain.user.Nickname;
 import com.dunowljj.board.domain.user.PasswordHash;
 import com.dunowljj.board.domain.user.User;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class UserCommandService implements RegisterUserUseCase, LoginUserUseCase {
 
     private static final int MIN_PASSWORD_LENGTH = 8;
@@ -33,16 +35,6 @@ public class UserCommandService implements RegisterUserUseCase, LoginUserUseCase
     private final LoadUserPort loadUserPort;
     private final ExistsUserPort existsUserPort;
     private final PasswordHasherPort passwordHasher;
-
-    public UserCommandService(SaveUserPort saveUserPort,
-                              LoadUserPort loadUserPort,
-                              ExistsUserPort existsUserPort,
-                              PasswordHasherPort passwordHasher) {
-        this.saveUserPort = saveUserPort;
-        this.loadUserPort = loadUserPort;
-        this.existsUserPort = existsUserPort;
-        this.passwordHasher = passwordHasher;
-    }
 
     @Override
     public UserResult register(RegisterUserCommand command) {

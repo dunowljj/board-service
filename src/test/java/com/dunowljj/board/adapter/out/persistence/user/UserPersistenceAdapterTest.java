@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @DataJpaTest
-@Import({UserPersistenceAdapter.class, TimeConfig.class, TestAuditConfig.class, PostgresTestcontainersConfig.class})
+@Import({UserPersistenceAdapter.class, UserStore.class, TimeConfig.class, TestAuditConfig.class, PostgresTestcontainersConfig.class})
 class UserPersistenceAdapterTest {
 
     @Autowired

@@ -22,11 +22,15 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "users", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_users_email", columnNames = "email"),
-        @UniqueConstraint(name = "uk_users_nickname_canonical", columnNames = "nickname_canonical")
+        @UniqueConstraint(name = UserJpaEntity.EMAIL_CONSTRAINT, columnNames = "email"),
+        @UniqueConstraint(name = UserJpaEntity.NICKNAME_CONSTRAINT, columnNames = "nickname_canonical")
 })
 @EntityListeners(AuditingEntityListener.class)
 public class UserJpaEntity {
+
+    /** unique constraint name — race fallback 분기(UserPersistenceAdapter)와 단일 출처 공유. */
+    public static final String EMAIL_CONSTRAINT = "uk_users_email";
+    public static final String NICKNAME_CONSTRAINT = "uk_users_nickname_canonical";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
