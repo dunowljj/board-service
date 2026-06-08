@@ -39,7 +39,7 @@ class PostQueryServiceTest {
     @DisplayName("식별자로 게시글을 조회하면 Port 가 반환한 AuditedPost 를 AuditedPostResult 로 매핑해 돌려준다")
     void getById_returns_audited_post_result_from_port() {
         Post post = PostFixtures.aReconstitutedPost(3L);
-        when(loadPostPort.findById(3L)).thenReturn(Optional.of(new AuditedPost(post, FIXED_NOW, FIXED_NOW)));
+        when(loadPostPort.findById(3L)).thenReturn(Optional.of(new AuditedPost(post, "관리자", FIXED_NOW, FIXED_NOW)));
 
         AuditedPostResult result = sut.getById(3L);
 
@@ -61,7 +61,7 @@ class PostQueryServiceTest {
     @Test
     @DisplayName("페이지 조회 결과의 totalPages 는 총 개수를 페이지 크기로 나눈 몫이다")
     void list_computes_total_pages_for_exact_division() {
-        AuditedPost audited = new AuditedPost(PostFixtures.aReconstitutedPost(1L), FIXED_NOW, FIXED_NOW);
+        AuditedPost audited = new AuditedPost(PostFixtures.aReconstitutedPost(1L), "관리자", FIXED_NOW, FIXED_NOW);
         when(loadPostPort.findPage(0, 5)).thenReturn(new PostPage(List.of(audited), 10L));
 
         PostListResult result = sut.list(0, 5);

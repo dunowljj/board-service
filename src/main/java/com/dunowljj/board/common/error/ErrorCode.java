@@ -35,6 +35,13 @@ public enum ErrorCode {
      * {@code BusinessException} subtypes.
      */
     VALIDATION_FAILED("VALIDATION_FAILED", ErrorCategory.INVALID_INPUT, "입력 형식이 올바르지 않습니다"),
+    ACCESS_DENIED("ACCESS_DENIED", ErrorCategory.FORBIDDEN, "접근 권한이 없습니다"),
+    AUTHENTICATION_REQUIRED("AUTHENTICATION_REQUIRED", ErrorCategory.UNAUTHORIZED, "로그인이 필요합니다"),
+    AUTHENTICATION_FAILED("AUTHENTICATION_FAILED", ErrorCategory.UNAUTHORIZED, "이메일 또는 비밀번호가 올바르지 않습니다"),
+    DUPLICATE_EMAIL("DUPLICATE_EMAIL", ErrorCategory.CONFLICT, "이미 사용 중인 이메일입니다"),
+    DUPLICATE_NICKNAME("DUPLICATE_NICKNAME", ErrorCategory.CONFLICT, "이미 사용 중인 닉네임입니다"),
+    USER_NOT_FOUND("USER_NOT_FOUND", ErrorCategory.NOT_FOUND, "사용자를 찾을 수 없습니다"),
+    INVALID_USER_CONTENT("INVALID_USER_CONTENT", ErrorCategory.INVALID_INPUT, "사용자 정보가 올바르지 않습니다"),
     /**
      * Server-internal fallback. Reserved for the web-adapter 5xx fallback path in
      * {@code GlobalExceptionHandler}. Do <b>not</b> throw this via {@code BusinessException}

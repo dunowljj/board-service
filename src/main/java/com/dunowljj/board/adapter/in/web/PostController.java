@@ -12,6 +12,7 @@ import com.dunowljj.board.application.port.in.UpdatePostUseCase;
 import com.dunowljj.board.application.port.in.result.AuditedPostResult;
 import com.dunowljj.board.application.port.in.result.PostListResult;
 import jakarta.validation.Valid;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
@@ -39,9 +40,10 @@ public class PostController {
     private final ListPostsUseCase listPostsUseCase;
 
     @PostMapping
-    public ResponseEntity<PostResponse> create(@Valid @RequestBody CreatePostRequest request) {
+    public ResponseEntity<PostResponse> create(@Valid @RequestBody CreatePostRequest request,
+                                                @AuthenticationPrincipal Long actorUserId) {
         var command = new CreatePostUseCase.CreatePostCommand(
-                request.title(), request.body(), request.author());
+                request.title(), request.body(), actorUserId);
         AuditedPostResult result = createPostUseCase.create(command);
         return ResponseEntity.status(HttpStatus.CREATED).body(PostResponse.from(result));
     }
@@ -54,16 +56,18 @@ public class PostController {
 
     @PutMapping("/{id}")
     public ResponseEntity<PostResponse> update(@PathVariable Long id,
-                                               @Valid @RequestBody UpdatePostRequest request) {
+                                               @Valid @RequestBody UpdatePostRequest request,
+                                               @AuthenticationPrincipal Long actorUserId) {
         var command = new UpdatePostUseCase.UpdatePostCommand(
-                id, request.title(), request.body());
+                id, request.title(), request.body(), actorUserId);
         AuditedPostResult result = updatePostUseCase.update(command);
         return ResponseEntity.ok(PostResponse.from(result));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        deletePostUseCase.delete(id);
+    public ResponseEntity<Void> delete(@PathVariable Long id,
+                                        @AuthenticationPrincipal Long actorUserId) {
+        deletePostUseCase.delete(new DeletePostUseCase.DeletePostCommand(id, actorUserId));
         return ResponseEntity.noContent().build();
     }
 

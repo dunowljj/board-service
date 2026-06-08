@@ -1,5 +1,7 @@
 package com.dunowljj.board.adapter.out.persistence.post;
 
+import com.dunowljj.board.adapter.out.persistence.user.UserJpaEntity;
+import com.dunowljj.board.adapter.out.persistence.user.UserJpaRepository;
 import com.dunowljj.board.application.common.PostPage;
 import com.dunowljj.board.application.port.out.result.AuditedPost;
 import com.dunowljj.board.config.MutableClock;
@@ -30,34 +32,48 @@ class PostPersistenceAdapterTest {
     PostPersistenceAdapter adapter;
 
     @Autowired
+    UserJpaRepository userJpaRepository;
+
+    @Autowired
     MutableClock clock;
+
+    Long authorId;
 
     /**
      * MutableClock 은 Spring context 의 단일 빈 인스턴스로 모든 테스트에 공유된다.
      * {@code @DataJpaTest} 의 DB rollback 은 *bean 상태* 를 되돌리지 않으므로,
      * 이전 테스트의 {@code advance}/{@code setTo} 가 다음 테스트로 누수되지 않게
      * 매 테스트 진입 시 초기값으로 명시 리셋 (ADR-0006 §5 의 결정성 원칙).
+     *
+     * <p>또한 PostPersistenceAdapter 의 join projection 이 users 행을 요구하므로
+     * 매 테스트 진입 시 author user 도 함께 시드 (PLAN-0011 §7 N+1 회피 join).
      */
     @BeforeEach
-    void resetClock() {
+    void setUp() {
         clock.setTo(PostFixtures.FIXED_NOW);
+        UserJpaEntity user = userJpaRepository.save(new UserJpaEntity(
+                null, "author@example.com", "관리자", "관리자",
+                "$2a$10$placeholderHashForTestUseOnlyXXXXXXXXXXXXXXXXXX"));
+        authorId = user.getId();
     }
 
     @Test
     @DisplayName("새 게시글을 저장하면 id 가 부여되고 audit listener 가 createdAt/updatedAt 을 FIXED_NOW 로 채운다")
     void create_assigns_id_and_audit_listener_fills_timestamps() {
-        AuditedPost saved = adapter.create(Post.create("t", "b", "a"));
+        AuditedPost saved = adapter.create(Post.create("t", "b", authorId));
 
         assertThat(saved.post().getId()).isNotNull();
         assertThat(saved.post().getTitle()).isEqualTo("t");
         assertThat(saved.post().getBody()).isEqualTo("b");
-        assertThat(saved.post().getAuthor()).isEqualTo("a");
+        assertThat(saved.post().getAuthorId()).isEqualTo(authorId);
+        assertThat(saved.authorNickname()).isEqualTo("관리자");
         assertThat(saved.createdAt()).isEqualTo(FIXED_NOW);
         assertThat(saved.updatedAt()).isEqualTo(FIXED_NOW);
 
         Optional<AuditedPost> found = adapter.findById(saved.post().getId());
         assertThat(found).isPresent();
         assertThat(found.get().post().getTitle()).isEqualTo("t");
+        assertThat(found.get().authorNickname()).isEqualTo("관리자");
         assertThat(found.get().createdAt()).isEqualTo(FIXED_NOW);
         assertThat(found.get().updatedAt()).isEqualTo(FIXED_NOW);
     }
@@ -65,14 +81,14 @@ class PostPersistenceAdapterTest {
     @Test
     @DisplayName("기존 게시글을 갱신하면 동일 id 로 갱신되고 createdAt 은 보존되며 updatedAt 은 새 시점으로 진행한다")
     void update_keeps_createdAt_and_advances_updatedAt() {
-        AuditedPost created = adapter.create(Post.create("old-title", "old-body", "a"));
+        AuditedPost created = adapter.create(Post.create("old-title", "old-body", authorId));
         Long id = created.post().getId();
         LocalDateTime createdAt = created.createdAt();
 
         clock.advance(Duration.ofMinutes(1));
         LocalDateTime later = LocalDateTime.now(clock);
 
-        AuditedPost updated = adapter.update(Post.reconstitute(id, "new-title", "new-body", "a"));
+        AuditedPost updated = adapter.update(Post.reconstitute(id, "new-title", "new-body", authorId));
 
         assertThat(updated.post().getId()).isEqualTo(id);
         assertThat(updated.post().getTitle()).isEqualTo("new-title");
@@ -84,13 +100,13 @@ class PostPersistenceAdapterTest {
     @Test
     @DisplayName("동일 내용 update 시 dirty 가 없어 updatedAt 이 변경되지 않는다 (no-op)")
     void update_with_same_content_keeps_updatedAt() {
-        AuditedPost created = adapter.create(Post.create("t", "b", "a"));
+        AuditedPost created = adapter.create(Post.create("t", "b", authorId));
         Long id = created.post().getId();
         LocalDateTime originalUpdatedAt = created.updatedAt();
 
         clock.advance(Duration.ofMinutes(1));
 
-        AuditedPost updated = adapter.update(Post.reconstitute(id, "t", "b", "a"));
+        AuditedPost updated = adapter.update(Post.reconstitute(id, "t", "b", authorId));
 
         assertThat(updated.updatedAt()).isEqualTo(originalUpdatedAt);
     }
@@ -107,11 +123,11 @@ class PostPersistenceAdapterTest {
     @DisplayName("findPage 는 createdAt 내림차순 + id 내림차순 tie-breaker 로 첫 페이지를 돌려준다")
     void findPage_returns_first_page_ordered_by_createdAt_desc_id_desc() {
         clock.setTo(LocalDateTime.of(2026, 1, 1, 0, 0));
-        adapter.create(Post.create("old", "b", "a"));
+        adapter.create(Post.create("old", "b", authorId));
         clock.setTo(LocalDateTime.of(2026, 1, 2, 0, 0));
-        adapter.create(Post.create("mid", "b", "a"));
+        adapter.create(Post.create("mid", "b", authorId));
         clock.setTo(LocalDateTime.of(2026, 1, 3, 0, 0));
-        adapter.create(Post.create("new", "b", "a"));
+        adapter.create(Post.create("new", "b", authorId));
 
         PostPage page = adapter.findPage(0, 2);
 
@@ -125,11 +141,11 @@ class PostPersistenceAdapterTest {
     @DisplayName("findPage 두 번째 페이지는 남은 항목과 동일한 totalElements 를 돌려준다")
     void findPage_returns_second_page_with_remaining_items() {
         clock.setTo(LocalDateTime.of(2026, 1, 1, 0, 0));
-        adapter.create(Post.create("old", "b", "a"));
+        adapter.create(Post.create("old", "b", authorId));
         clock.setTo(LocalDateTime.of(2026, 1, 2, 0, 0));
-        adapter.create(Post.create("mid", "b", "a"));
+        adapter.create(Post.create("mid", "b", authorId));
         clock.setTo(LocalDateTime.of(2026, 1, 3, 0, 0));
-        adapter.create(Post.create("new", "b", "a"));
+        adapter.create(Post.create("new", "b", authorId));
 
         PostPage page = adapter.findPage(1, 2);
 
@@ -151,7 +167,7 @@ class PostPersistenceAdapterTest {
     @Test
     @DisplayName("존재하는 id 를 삭제하면 row-count 1 을 돌려준다")
     void deleteById_returns_one_when_row_exists() {
-        AuditedPost created = adapter.create(Post.create("t", "b", "a"));
+        AuditedPost created = adapter.create(Post.create("t", "b", authorId));
         Long id = created.post().getId();
 
         int affected = adapter.deleteById(id);

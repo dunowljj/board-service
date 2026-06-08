@@ -9,6 +9,7 @@ import com.dunowljj.board.application.port.out.DeletePostPort;
 import com.dunowljj.board.application.port.out.LoadPostPort;
 import com.dunowljj.board.application.port.out.UpdatePostPort;
 import com.dunowljj.board.application.port.out.result.AuditedPost;
+import com.dunowljj.board.common.error.NotPostOwnerException;
 import com.dunowljj.board.common.error.PostNotFoundException;
 import com.dunowljj.board.domain.post.Post;
 import lombok.RequiredArgsConstructor;
@@ -27,9 +28,9 @@ public class PostCommandService implements CreatePostUseCase, UpdatePostUseCase,
 
     @Override
     public AuditedPostResult create(CreatePostCommand command) {
-        Post post = Post.create(command.title(), command.body(), command.author());
+        Post post = Post.create(command.title(), command.body(), command.actorUserId());
         AuditedPost saved = createPostPort.create(post);
-        return AuditedPostResult.from(saved.post(), saved.createdAt(), saved.updatedAt());
+        return AuditedPostResult.from(saved.post(), saved.authorNickname(), saved.createdAt(), saved.updatedAt());
     }
 
     @Override
@@ -37,15 +38,23 @@ public class PostCommandService implements CreatePostUseCase, UpdatePostUseCase,
         AuditedPost loaded = loadPostPort.findById(command.id())
                 .orElseThrow(() -> new PostNotFoundException(command.id()));
         Post post = loaded.post();
+        if (!post.getAuthorId().equals(command.actorUserId())) {
+            throw new NotPostOwnerException(command.id(), command.actorUserId());
+        }
         post.updateContent(command.title(), command.body());
         AuditedPost saved = updatePostPort.update(post);
-        return AuditedPostResult.from(saved.post(), saved.createdAt(), saved.updatedAt());
+        return AuditedPostResult.from(saved.post(), saved.authorNickname(), saved.createdAt(), saved.updatedAt());
     }
 
     @Override
-    public void delete(Long id) {
-        if (deletePostPort.deleteById(id) == 0) {
-            throw new PostNotFoundException(id);
+    public void delete(DeletePostCommand command) {
+        AuditedPost loaded = loadPostPort.findById(command.id())
+                .orElseThrow(() -> new PostNotFoundException(command.id()));
+        if (!loaded.post().getAuthorId().equals(command.actorUserId())) {
+            throw new NotPostOwnerException(command.id(), command.actorUserId());
+        }
+        if (deletePostPort.deleteById(command.id()) == 0) {
+            throw new PostNotFoundException(command.id());
         }
     }
 }

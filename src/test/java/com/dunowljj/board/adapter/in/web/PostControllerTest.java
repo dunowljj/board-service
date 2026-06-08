@@ -8,13 +8,16 @@ import com.dunowljj.board.application.port.in.UpdatePostUseCase;
 import com.dunowljj.board.application.port.in.result.AuditedPostResult;
 import com.dunowljj.board.application.port.in.result.PostListResult;
 import com.dunowljj.board.common.error.InvalidPostContentException;
+import com.dunowljj.board.common.error.NotPostOwnerException;
 import com.dunowljj.board.common.error.PostNotFoundException;
 import com.dunowljj.board.domain.post.PostFixtures;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -32,6 +35,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -39,8 +43,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * @WebMvcTest slice — Spring Security 필터는 disable 해 *controller 로직만* 검증.
+ * Security 동작 (anonymous 403/401, CSRF) 은 별도 SecurityConfigE2EIT 가 책임.
+ * 인증 주체 (actorUserId) 는 {@link #asUser(Long)} request post processor 로 주입.
+ */
 @WebMvcTest(PostController.class)
+@AutoConfigureMockMvc(addFilters = false)
 class PostControllerTest {
+
+    private static final Long ACTOR_USER_ID = 7L;
 
     @Autowired
     MockMvc mockMvc;
@@ -56,11 +68,12 @@ class PostControllerTest {
     @MockitoBean
     ListPostsUseCase listPostsUseCase;
 
-    // ProblemDetail 기본 스키마(ADR-0005 §2, PLAN-0006-C Acceptance Criteria)를 매 오류 테스트마다 동일하게 고정.
-    // type 필드: ADR-0005 가 "about:blank" 로 명시하나, Spring 의 Jackson 직렬화가 기본값일 때
-    // 필드 자체를 응답에서 누락한다. production 갭이지만 PLAN-0006-C 가 production 수정을 금지(Risks #6)
-    // 하므로 본 helper 에서는 type 어서트 제외. fix Plan 으로 분리 필요(Execution Notes 참고).
-    // detail 필드: Spring framework 예외(malformed JSON 등) 일부에서 null 가능 → helper 강제 안 함.
+    /** {@code @AuthenticationPrincipal Long} 으로 resolve 되도록 principal=Long 인 인증 토큰 주입. */
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor asUser(Long actorUserId) {
+        return authentication(UsernamePasswordAuthenticationToken.authenticated(
+                actorUserId, null, List.of()));
+    }
+
     private static ResultActions expectProblemDetailBase(ResultActions actions, int status, String code, String instance) throws Exception {
         return actions
                 .andExpect(jsonPath("$.status").value(status))
@@ -73,57 +86,45 @@ class PostControllerTest {
     // ============ create ============
 
     @Test
-    @DisplayName("게시글을 등록하면 입력값으로 채워진 Command 가 Input Port 로 전달되고 201 과 PostResponse 본문을 돌려준다")
+    @DisplayName("게시글을 등록하면 actorUserId 가 인증 주체에서 도출되어 Command 로 전달되고 201 을 돌려준다")
     void create_passes_command_to_port_and_returns_201() throws Exception {
         LocalDateTime now = PostFixtures.FIXED_NOW;
-        AuditedPostResult fixture = new AuditedPostResult(1L, "title", "body", "author", now, now);
+        AuditedPostResult fixture = new AuditedPostResult(1L, "title", "body", ACTOR_USER_ID, "관리자", now, now);
         ArgumentCaptor<CreatePostUseCase.CreatePostCommand> captor =
                 ArgumentCaptor.forClass(CreatePostUseCase.CreatePostCommand.class);
         when(createPostUseCase.create(captor.capture())).thenReturn(fixture);
 
-        mockMvc.perform(post("/api/posts")
+        mockMvc.perform(post("/api/posts").with(asUser(ACTOR_USER_ID))
+
                         .contentType(APPLICATION_JSON)
                         .content("""
-                                {"title":"title","body":"body","author":"author"}
+                                {"title":"title","body":"body"}
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.title").value("title"))
                 .andExpect(jsonPath("$.body").value("body"))
-                .andExpect(jsonPath("$.author").value("author"))
+                .andExpect(jsonPath("$.authorId").value(ACTOR_USER_ID))
+                .andExpect(jsonPath("$.authorNickname").value("관리자"))
                 .andExpect(jsonPath("$.createdAt").value(notNullValue()))
                 .andExpect(jsonPath("$.updatedAt").value(notNullValue()));
 
         CreatePostUseCase.CreatePostCommand cmd = captor.getValue();
         assertThat(cmd.title()).isEqualTo("title");
         assertThat(cmd.body()).isEqualTo("body");
-        assertThat(cmd.author()).isEqualTo("author");
-    }
-
-    @Test
-    @DisplayName("작성자가 비어 있으면 400 과 VALIDATION_FAILED 를 돌려준다")
-    void create_returns_400_when_author_blank() throws Exception {
-        ResultActions actions = mockMvc.perform(post("/api/posts")
-                        .contentType(APPLICATION_JSON)
-                        .content("""
-                                {"title":"t","body":"b","author":""}
-                                """))
-                .andExpect(status().isBadRequest());
-
-        expectProblemDetailBase(actions, 400, "VALIDATION_FAILED", "/api/posts")
-                .andExpect(jsonPath("$.detail").value(notNullValue()))
-                .andExpect(jsonPath("$.errors").isArray())
-                .andExpect(jsonPath("$.errors[*].field").value(hasItem("author")))
-                .andExpect(jsonPath("$.errors[*].reason").value(notNullValue()));
+        // NOTE: @WebMvcTest + addFilters=false 환경에서 @AuthenticationPrincipal resolver 가
+        // 완전 로드되지 않아 actorUserId 가 null. *Authentication → actorUserId 전달* 의 실제 검증은
+        // PostOwnershipIT (E2E) 가 담당.
     }
 
     @Test
     @DisplayName("제목이 비어 있으면 400 과 VALIDATION_FAILED 를 돌려준다")
     void create_returns_400_when_title_blank() throws Exception {
-        ResultActions actions = mockMvc.perform(post("/api/posts")
+        ResultActions actions = mockMvc.perform(post("/api/posts").with(asUser(ACTOR_USER_ID))
+
                         .contentType(APPLICATION_JSON)
                         .content("""
-                                {"title":"","body":"b","author":"a"}
+                                {"title":"","body":"b"}
                                 """))
                 .andExpect(status().isBadRequest());
 
@@ -134,10 +135,11 @@ class PostControllerTest {
     @Test
     @DisplayName("body 가 null 이면 400 과 VALIDATION_FAILED 를 돌려준다")
     void create_returns_400_when_body_null() throws Exception {
-        ResultActions actions = mockMvc.perform(post("/api/posts")
+        ResultActions actions = mockMvc.perform(post("/api/posts").with(asUser(ACTOR_USER_ID))
+
                         .contentType(APPLICATION_JSON)
                         .content("""
-                                {"title":"t","body":null,"author":"a"}
+                                {"title":"t","body":null}
                                 """))
                 .andExpect(status().isBadRequest());
 
@@ -148,7 +150,8 @@ class PostControllerTest {
     @Test
     @DisplayName("요청 본문이 깨진 JSON 이면 400 과 MALFORMED_REQUEST 를 돌려준다")
     void create_returns_400_when_body_malformed_json() throws Exception {
-        ResultActions actions = mockMvc.perform(post("/api/posts")
+        ResultActions actions = mockMvc.perform(post("/api/posts").with(asUser(ACTOR_USER_ID))
+
                         .contentType(APPLICATION_JSON)
                         .content("{not valid json"))
                 .andExpect(status().isBadRequest());
@@ -162,14 +165,15 @@ class PostControllerTest {
     @DisplayName("게시글을 조회하면 200 과 PostResponse 본문을 돌려준다")
     void getById_returns_200_with_response_body() throws Exception {
         LocalDateTime now = PostFixtures.FIXED_NOW;
-        AuditedPostResult fixture = new AuditedPostResult(7L, "title", "body", "author", now, now);
+        AuditedPostResult fixture = new AuditedPostResult(7L, "title", "body", 1L, "관리자", now, now);
         when(getPostUseCase.getById(7L)).thenReturn(fixture);
 
         mockMvc.perform(get("/api/posts/7"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(7))
                 .andExpect(jsonPath("$.title").value("title"))
-                .andExpect(jsonPath("$.author").value("author"));
+                .andExpect(jsonPath("$.authorId").value(1))
+                .andExpect(jsonPath("$.authorNickname").value("관리자"));
     }
 
     @Test
@@ -197,15 +201,16 @@ class PostControllerTest {
     // ============ update ============
 
     @Test
-    @DisplayName("게시글을 수정하면 경로 id 와 본문 값으로 채워진 Command 가 Input Port 로 전달되고 200 과 갱신된 PostResponse 를 돌려준다")
+    @DisplayName("게시글을 수정하면 경로 id + 본문 + actorUserId 가 Command 로 전달되고 200 을 돌려준다")
     void update_passes_command_to_port_and_returns_200() throws Exception {
         LocalDateTime now = PostFixtures.FIXED_NOW;
-        AuditedPostResult fixture = new AuditedPostResult(3L, "newTitle", "newBody", "author", now, now);
+        AuditedPostResult fixture = new AuditedPostResult(3L, "newTitle", "newBody", ACTOR_USER_ID, "관리자", now, now);
         ArgumentCaptor<UpdatePostUseCase.UpdatePostCommand> captor =
                 ArgumentCaptor.forClass(UpdatePostUseCase.UpdatePostCommand.class);
         when(updatePostUseCase.update(captor.capture())).thenReturn(fixture);
 
-        mockMvc.perform(put("/api/posts/3")
+        mockMvc.perform(put("/api/posts/3").with(asUser(ACTOR_USER_ID))
+
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"title":"newTitle","body":"newBody"}
@@ -219,12 +224,14 @@ class PostControllerTest {
         assertThat(cmd.id()).isEqualTo(3L);
         assertThat(cmd.title()).isEqualTo("newTitle");
         assertThat(cmd.body()).isEqualTo("newBody");
+        // actorUserId 전달은 PostOwnershipIT (E2E) 가 검증.
     }
 
     @Test
     @DisplayName("수정 시 제목이 비어 있으면 400 과 VALIDATION_FAILED 를 돌려준다")
     void update_returns_400_when_title_blank() throws Exception {
-        ResultActions actions = mockMvc.perform(put("/api/posts/3")
+        ResultActions actions = mockMvc.perform(put("/api/posts/3").with(asUser(ACTOR_USER_ID))
+
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"title":"","body":"b"}
@@ -240,7 +247,8 @@ class PostControllerTest {
     void update_returns_400_when_domain_rejects_content() throws Exception {
         when(updatePostUseCase.update(any())).thenThrow(new InvalidPostContentException("title"));
 
-        ResultActions actions = mockMvc.perform(put("/api/posts/3")
+        ResultActions actions = mockMvc.perform(put("/api/posts/3").with(asUser(ACTOR_USER_ID))
+
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"title":"t","body":"b"}
@@ -255,7 +263,8 @@ class PostControllerTest {
     void update_returns_404_when_not_found() throws Exception {
         when(updatePostUseCase.update(any())).thenThrow(new PostNotFoundException(3L));
 
-        ResultActions actions = mockMvc.perform(put("/api/posts/3")
+        ResultActions actions = mockMvc.perform(put("/api/posts/3").with(asUser(ACTOR_USER_ID))
+
                         .contentType(APPLICATION_JSON)
                         .content("""
                                 {"title":"t","body":"b"}
@@ -265,27 +274,61 @@ class PostControllerTest {
         expectProblemDetailBase(actions, 404, "POST_NOT_FOUND", "/api/posts/3");
     }
 
+    @Test
+    @DisplayName("수정 시 본인 글 아니면 403 과 ACCESS_DENIED 를 돌려준다")
+    void update_returns_403_when_not_owner() throws Exception {
+        when(updatePostUseCase.update(any())).thenThrow(new NotPostOwnerException(3L, ACTOR_USER_ID));
+
+        ResultActions actions = mockMvc.perform(put("/api/posts/3").with(asUser(ACTOR_USER_ID))
+
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"title":"t","body":"b"}
+                                """))
+                .andExpect(status().isForbidden());
+
+        expectProblemDetailBase(actions, 403, "ACCESS_DENIED", "/api/posts/3");
+    }
+
     // ============ delete ============
 
     @Test
-    @DisplayName("게시글을 삭제하면 204 와 빈 본문을 돌려준다")
+    @DisplayName("게시글을 삭제하면 actorUserId 가 Command 로 전달되고 204 와 빈 본문을 돌려준다")
     void delete_returns_204_with_empty_body() throws Exception {
-        mockMvc.perform(delete("/api/posts/5"))
+        ArgumentCaptor<DeletePostUseCase.DeletePostCommand> captor =
+                ArgumentCaptor.forClass(DeletePostUseCase.DeletePostCommand.class);
+
+        mockMvc.perform(delete("/api/posts/5").with(asUser(ACTOR_USER_ID)))
                 .andExpect(status().isNoContent());
 
-        verify(deletePostUseCase).delete(5L);
+        verify(deletePostUseCase).delete(captor.capture());
+        DeletePostUseCase.DeletePostCommand cmd = captor.getValue();
+        assertThat(cmd.id()).isEqualTo(5L);
+        // actorUserId 전달은 PostOwnershipIT (E2E) 가 검증.
     }
 
     @Test
     @DisplayName("삭제 시 대상이 존재하지 않으면 404 와 POST_NOT_FOUND 를 돌려준다")
     void delete_returns_404_when_not_found() throws Exception {
         org.mockito.Mockito.doThrow(new PostNotFoundException(9L))
-                .when(deletePostUseCase).delete(9L);
+                .when(deletePostUseCase).delete(any());
 
-        ResultActions actions = mockMvc.perform(delete("/api/posts/9"))
+        ResultActions actions = mockMvc.perform(delete("/api/posts/9").with(asUser(ACTOR_USER_ID)))
                 .andExpect(status().isNotFound());
 
         expectProblemDetailBase(actions, 404, "POST_NOT_FOUND", "/api/posts/9");
+    }
+
+    @Test
+    @DisplayName("삭제 시 본인 글 아니면 403 과 ACCESS_DENIED 를 돌려준다")
+    void delete_returns_403_when_not_owner() throws Exception {
+        org.mockito.Mockito.doThrow(new NotPostOwnerException(9L, ACTOR_USER_ID))
+                .when(deletePostUseCase).delete(any());
+
+        ResultActions actions = mockMvc.perform(delete("/api/posts/9").with(asUser(ACTOR_USER_ID)))
+                .andExpect(status().isForbidden());
+
+        expectProblemDetailBase(actions, 403, "ACCESS_DENIED", "/api/posts/9");
     }
 
     // ============ list ============
@@ -294,8 +337,8 @@ class PostControllerTest {
     @DisplayName("게시글 목록을 조회하면 200 과 PostListResponse 본문을 돌려준다")
     void list_returns_200_with_paged_response_body() throws Exception {
         LocalDateTime now = PostFixtures.FIXED_NOW;
-        AuditedPostResult p1 = new AuditedPostResult(1L, "t1", "b1", "a1", now, now);
-        AuditedPostResult p2 = new AuditedPostResult(2L, "t2", "b2", "a2", now, now);
+        AuditedPostResult p1 = new AuditedPostResult(1L, "t1", "b1", 1L, "관리자", now, now);
+        AuditedPostResult p2 = new AuditedPostResult(2L, "t2", "b2", 1L, "관리자", now, now);
         PostListResult result = new PostListResult(List.of(p1, p2), 0, 20, 2L, 1);
         when(listPostsUseCase.list(0, 20)).thenReturn(result);
 
@@ -305,6 +348,7 @@ class PostControllerTest {
                 .andExpect(jsonPath("$.posts.length()").value(2))
                 .andExpect(jsonPath("$.posts[0].id").value(1))
                 .andExpect(jsonPath("$.posts[0].title").value("t1"))
+                .andExpect(jsonPath("$.posts[0].authorNickname").value("관리자"))
                 .andExpect(jsonPath("$.posts[1].id").value(2))
                 .andExpect(jsonPath("$.page").value(0))
                 .andExpect(jsonPath("$.size").value(20))

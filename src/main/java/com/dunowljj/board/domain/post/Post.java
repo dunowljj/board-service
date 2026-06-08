@@ -6,30 +6,30 @@ public class Post {
 
     private Long id;
     private PostContent content;
-    private String author;
+    private Long authorId;
 
-    private Post(Long id, PostContent content, String author) {
+    private Post(Long id, PostContent content, Long authorId) {
         this.id = id;
         this.content = content;
-        this.author = author;
+        this.authorId = authorId;
     }
 
-    public static Post create(String title, String body, String author) {
-        validateAuthor(author);
-        return new Post(null, new PostContent(title, body), author);
+    public static Post create(String title, String body, Long authorId) {
+        validateAuthorId(authorId);
+        return new Post(null, new PostContent(title, body), authorId);
     }
 
-    public static Post reconstitute(Long id, String title, String body, String author) {
+    public static Post reconstitute(Long id, String title, String body, Long authorId) {
         if (id == null) {
             throw new IllegalArgumentException("Id must not be null");
         }
-        validateAuthor(author);
-        return new Post(id, new PostContent(title, body), author);
+        validateAuthorId(authorId);
+        return new Post(id, new PostContent(title, body), authorId);
     }
 
-    private static void validateAuthor(String author) {
-        if (author == null || author.isBlank()) {
-            throw new InvalidPostContentException("author");
+    private static void validateAuthorId(Long authorId) {
+        if (authorId == null) {
+            throw new InvalidPostContentException("authorId");
         }
     }
 
@@ -53,7 +53,7 @@ public class Post {
         return content.getBody();
     }
 
-    public String getAuthor() {
-        return author;
+    public Long getAuthorId() {
+        return authorId;
     }
 }

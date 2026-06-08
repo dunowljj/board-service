@@ -13,6 +13,7 @@ public final class ErrorCategoryHttpStatusMapper {
             case NOT_FOUND -> HttpStatus.NOT_FOUND;
             case INVALID_INPUT -> HttpStatus.BAD_REQUEST;
             case CONFLICT -> HttpStatus.CONFLICT;
+            case UNAUTHORIZED -> HttpStatus.UNAUTHORIZED;
             case FORBIDDEN -> HttpStatus.FORBIDDEN;
             case INTERNAL -> HttpStatus.INTERNAL_SERVER_ERROR;
         };
