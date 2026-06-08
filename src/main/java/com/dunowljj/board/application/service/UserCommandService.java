@@ -43,10 +43,10 @@ public class UserCommandService implements RegisterUserUseCase, LoginUserUseCase
         validatePassword(command.password());
 
         if (existsUserPort.existsByEmail(email)) {
-            throw new DuplicateEmailException(email.value());
+            throw new DuplicateEmailException();
         }
         if (existsUserPort.existsByNicknameCanonical(nickname.canonical())) {
-            throw new DuplicateNicknameException(nickname.display());
+            throw new DuplicateNicknameException();
         }
 
         PasswordHash hash = passwordHasher.hash(command.password());
@@ -63,6 +63,11 @@ public class UserCommandService implements RegisterUserUseCase, LoginUserUseCase
         try {
             email = new Email(command.email());
         } catch (RuntimeException invalidFormat) {
+            throw new AuthenticationFailedException();
+        }
+        // null password 를 hasher 전에 인증 실패로 처리 — BCrypt 가 null raw 에 IllegalArgumentException
+        // 을 던져 500/enumeration oracle 이 되는 경로 차단. 존재/비존재 email 응답을 401 로 통일.
+        if (command.password() == null) {
             throw new AuthenticationFailedException();
         }
         AuditedUser audited = loadUserPort.findByEmail(email)

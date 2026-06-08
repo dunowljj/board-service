@@ -147,4 +147,12 @@ class UserCommandServiceTest {
         assertThatThrownBy(() -> sut.login(new LoginUserUseCase.LoginCommand("not-an-email", "secret123")))
                 .isInstanceOf(AuthenticationFailedException.class);
     }
+
+    @Test
+    @DisplayName("로그인 시 password 가 null 이면 hasher 호출 없이 AuthenticationFailedException (BCrypt null IllegalArgument → 500/enumeration 차단)")
+    void login_throws_authentication_failed_when_password_null() {
+        assertThatThrownBy(() -> sut.login(new LoginUserUseCase.LoginCommand("alice@example.com", null)))
+                .isInstanceOf(AuthenticationFailedException.class);
+        verify(passwordHasher, never()).matches(any(), any());
+    }
 }

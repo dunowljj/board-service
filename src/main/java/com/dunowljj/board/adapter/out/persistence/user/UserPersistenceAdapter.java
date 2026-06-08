@@ -31,7 +31,7 @@ public class UserPersistenceAdapter implements SaveUserPort, LoadUserPort, Exist
 
     @Override
     public AuditedUser save(User user) {
-        UserJpaEntity saved = userStore.saveUnique(UserMapper.toEntity(user), user);
+        UserJpaEntity saved = userStore.saveUnique(UserMapper.toEntity(user));
         return UserMapper.toAudited(saved);
     }
 

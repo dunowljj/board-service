@@ -3,7 +3,6 @@ package com.dunowljj.board.adapter.out.persistence.user;
 import com.dunowljj.board.adapter.out.persistence.common.UniqueViolationGuard;
 import com.dunowljj.board.common.error.DuplicateEmailException;
 import com.dunowljj.board.common.error.DuplicateNicknameException;
-import com.dunowljj.board.domain.user.User;
 import org.springframework.stereotype.Component;
 
 /**
@@ -24,10 +23,10 @@ class UserStore {
     }
 
     /** saveAndFlush 후 unique 위반 시 constraint 기준 도메인 예외로 변환해 던진다. */
-    UserJpaEntity saveUnique(UserJpaEntity entity, User user) {
+    UserJpaEntity saveUnique(UserJpaEntity entity) {
         return new UniqueViolationGuard()
-                .on(UserJpaEntity.EMAIL_CONSTRAINT, () -> new DuplicateEmailException(user.getEmail().value()))
-                .on(UserJpaEntity.NICKNAME_CONSTRAINT, () -> new DuplicateNicknameException(user.getNickname().display()))
+                .on(UserJpaEntity.EMAIL_CONSTRAINT, DuplicateEmailException::new)
+                .on(UserJpaEntity.NICKNAME_CONSTRAINT, DuplicateNicknameException::new)
                 .execute(() -> repository.saveAndFlush(entity));
     }
 }

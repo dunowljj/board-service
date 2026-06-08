@@ -182,6 +182,35 @@ class AuthE2EIT {
     }
 
     @Test
+    @DisplayName("로그인 body 가 깨진 JSON 이면 401 이 아니라 400 + MALFORMED_REQUEST")
+    void login_malformed_json_returns_400() throws Exception {
+        mockMvc.perform(post("/api/auth/login").with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("{ this is not valid json "))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("MALFORMED_REQUEST"));
+    }
+
+    @Test
+    @DisplayName("기존 email + password 누락 로그인은 500 이 아니라 401 AUTHENTICATION_FAILED")
+    void login_existing_email_missing_password_returns_401() throws Exception {
+        mockMvc.perform(post("/api/auth/register").with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"email":"alice@example.com","nickname":"alice","password":"secret123"}
+                                """))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(post("/api/auth/login").with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"email":"alice@example.com"}
+                                """))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("AUTHENTICATION_FAILED"));
+    }
+
+    @Test
     @DisplayName("nickname 대소문자 차이만 있어도 canonical 중복 차단")
     void register_duplicate_nickname_canonical_returns_409() throws Exception {
         mockMvc.perform(post("/api/auth/register").with(csrf())

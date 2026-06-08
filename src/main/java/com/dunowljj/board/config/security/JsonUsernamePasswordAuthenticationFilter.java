@@ -56,7 +56,8 @@ public class JsonUsernamePasswordAuthenticationFilter extends AbstractAuthentica
         try {
             return objectMapper.readValue(request.getInputStream(), LoginRequestBody.class);
         } catch (Exception e) {
-            throw new BadCredentialsException("malformed login request", e);
+            // 깨진 JSON / 미지원 content-type 은 인증 실패(401)가 아니라 요청 형식 오류(400).
+            throw new MalformedAuthenticationRequestException("malformed login request", e);
         }
     }
 

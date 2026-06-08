@@ -32,7 +32,10 @@ public class JsonLoginFailureHandler implements AuthenticationFailureHandler {
     public void onAuthenticationFailure(HttpServletRequest request,
                                         HttpServletResponse response,
                                         AuthenticationException exception) throws IOException {
-        ErrorCode code = ErrorCode.AUTHENTICATION_FAILED;
+        // 깨진 요청은 400 MALFORMED_REQUEST, 자격 증명 실패는 401 AUTHENTICATION_FAILED (ADR-0005).
+        ErrorCode code = (exception instanceof MalformedAuthenticationRequestException)
+                ? ErrorCode.MALFORMED_REQUEST
+                : ErrorCode.AUTHENTICATION_FAILED;
         HttpStatus status = ErrorCategoryHttpStatusMapper.toHttpStatus(code.category());
 
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, code.defaultMessage());
