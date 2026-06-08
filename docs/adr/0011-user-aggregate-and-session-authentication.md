@@ -154,7 +154,7 @@ session-based 채택이라 *CSRF 활성화 유지* (Spring Security default + de
   - `Secure` — profile 별 (dev=false, prod=true). 운영에서 HTTPS-only
   - `SameSite=Lax` — JSESSIONID 와 통일
   - `Path` / `Domain` — PLAN-0011 결정 (앱 경로 / 서브도메인 정책)
-- **token 전송**: 클라이언트가 `X-XSRF-TOKEN` 헤더에 cookie 값 복사하여 전송
+- **token 전송**: 클라이언트가 `X-CSRF-TOKEN` 헤더에 `XSRF-TOKEN` cookie 값 복사하여 전송 (cookie 명 `XSRF-TOKEN`, header 명 `X-CSRF-TOKEN` — PLAN-0011 / `SecurityConfig.CSRF_HEADER_NAME` 정합. 발급 경로 응답의 `headerName` 도 동일)
 - **token 발급 경로**: `GET /api/csrf` (또는 동등) — anonymous OK, 첫 진입 시 token 발급용
 - **mutation endpoint** (`POST` / `PUT` / `DELETE`) 는 *반드시 token 동반* — 없으면 403
 - 로그인 endpoint (`POST /api/auth/login`) 도 *예외 아님* — 첫 호출 전 `GET /api/csrf` 로 token 확보 필요
