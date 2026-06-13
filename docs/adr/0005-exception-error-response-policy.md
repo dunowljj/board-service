@@ -4,6 +4,8 @@
 ## Status
 Proposed
 
+**Amended 2026-06-13 (PLAN-0012)**: §5.1 추가 — User 입력 검증 경계 통일(커스텀 validator 가 VO 정책 메서드 공유), 내부 불변식(`PasswordHash` blank 등) = plain 예외 → 5xx 구분. 안정적 `errors[].code` 전역 도입은 후속 Plan 으로 deferred(셰이프 불변).
+
 ## Date
 2026-04-26
 
@@ -152,7 +154,16 @@ RuntimeException
 - **도메인 invariant의 진실원은 도메인이다.** 도메인 객체는 Web adapter를 거치지 않는 진입점(배치, 이벤트 컨슈머, 직접 호출)에서도 항상 유효해야 한다. not-blank·length가 도메인 객체의 유효성을 *구성*한다면, 그 검사는 도메인이 책임진다.
 - **DTO 검증은 도메인 검증을 대체하지 않는다.** DTO 검증의 역할은 ① 빠른 거절(fail-fast)로 도메인 진입 전 차단, ② field-level 응답(`errors[]`)으로 사용자 친화적 피드백 제공이다. 형식적으로 동일한 검사가 두 곳에 나타날 수 있으나 의미와 응답 형태가 다르므로 중복으로 보지 않는다.
 - **Cross-cutting은 도메인 invariant로 분류하지 않는다.** 소유권은 application policy/인가와, uniqueness는 DB 제약·트랜잭션·port 확인과 결합된다. 이 둘을 도메인에 끌어들이면 설계가 꼬인다.
-- **도메인 검증 실패는 `IllegalArgumentException`이 아니라 도메인 전용 `BusinessException` 서브타입(`InvalidPostContentException` 등)으로 던진다.** 라이브러리 내부 예외와 의미가 섞이지 않도록.
+- **도메인 검증 실패는 `IllegalArgumentException`이 아니라 도메인 전용 `BusinessException` 서브타입(`InvalidPostContentException` 등)으로 던진다.** 라이브러리 내부 예외와 의미가 섞이지 않도록. *단 §5.1 의 내부 불변식 예외 참조.*
+
+#### 5.1 입력 검증 경계 통일 (Amended 2026-06-13, PLAN-0012)
+
+User 입력(email/nickname 형식·문자·길이, password byte 길이) 검증에 §5 원칙을 *구체화*한다(supersede 아닌 확장).
+
+- **규칙 단일 출처 — 정책 메서드 공유.** "DTO 검증이 도메인 검증을 대체하지 않는다"를 지키되, 같은 규칙이 경계(Bean Validation)와 VO 에 *중복 정의*되어 divergence(trim/lowercase/NFC/NFKC 적용 순서가 갈림)하지 않도록, 도메인 VO 가 *정책 메서드*(`Email.isValid`/`normalize`, `Nickname.isValidDisplay`/`normalizedDisplay`)를 노출하고 경계 커스텀 제약(`@ValidEmail`/`@ValidNickname`)이 그 메서드를 *재사용*한다. `code`/`message`(표현 관심사)는 web 계층(애너테이션)이 소유 — 도메인은 모름(`domain_pure` 유지).
+- **형식·길이 실패는 경계에서 `VALIDATION_FAILED`.** User 입력 형식/문자/길이 위반은 경계 제약으로 잡혀 `VALIDATION_FAILED` + `errors[]` 로 응답한다. VO 는 비-웹 경로(배치/직접 호출) 백스톱으로 유지. uniqueness 중복은 §5 표의 *Cross-cutting* (`DUPLICATE_*`, 409) 으로 본 통일 대상 아니다.
+- **내부 불변식 vs 도메인 invariant 구분.** §5 표의 "도메인 invariant → `BusinessException`(4xx)"는 *사용자 입력으로 위반될 수 있는* 불변식에 한한다. *사용자 입력 경로가 구조적으로 없는* 내부 불변식(예: `PasswordHash` 는 해시 출력/DB 값만 받고 평문 미접촉 — BCrypt 는 non-blank 반환, DB 는 `NOT NULL`)은 위반 시 서버/데이터 버그이므로 `BusinessException`(4xx)이 아니라 *plain RuntimeException* 으로 던져 web adapter 5xx fallback(`INTERNAL_ERROR`)으로 흐른다. VO 가 HTTP 상태를 *판단*하지 않고 "4xx 인 척을 안 함" → 5xx 기본값(caller/상류 가드 가정 비의존).
+- **deferred.** 안정적 `errors[].code`(머신 코드)의 *전역* 도입(모든 제약 + `GlobalExceptionHandler` + Post/query 갱신)은 별도 Plan (i18n/프로그램적 분기 필요 시점). 본 amend 는 `errors[]` 셰이프(`{field, reason}`)를 바꾸지 않는다.
 
 ### 6. 도메인 예외 세분화 — 점진적 분해
 
