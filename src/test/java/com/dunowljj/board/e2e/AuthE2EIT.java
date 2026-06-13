@@ -162,6 +162,46 @@ class AuthE2EIT {
     }
 
     @Test
+    @DisplayName("register: email 형식 오류는 경계에서 VALIDATION_FAILED (INVALID_USER_CONTENT 아님)")
+    void register_invalid_email_format_returns_validation_failed() throws Exception {
+        mockMvc.perform(post("/api/auth/register").with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"email":"not-an-email","nickname":"alice","password":"secret123"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'email')]").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("register: nickname 허용 외 문자는 경계에서 VALIDATION_FAILED")
+    void register_invalid_nickname_chars_returns_validation_failed() throws Exception {
+        mockMvc.perform(post("/api/auth/register").with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"email":"alice@example.com","nickname":"bad nick!","password":"secret123"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'nickname')]").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("register: password 가 72 byte 초과(멀티바이트, char 수는 통과)면 경계에서 VALIDATION_FAILED")
+    void register_password_over_72_bytes_returns_validation_failed() throws Exception {
+        String password = "가".repeat(25); // 25 chars, UTF-8 75 bytes (> 72) — @Size(char) 통과, @MaxUtf8Bytes 차단
+        mockMvc.perform(post("/api/auth/register").with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"email":"alice@example.com","nickname":"alice","password":"%s"}
+                                """.formatted(password)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'password')]").isNotEmpty());
+    }
+
+    @Test
     @DisplayName("email 중복 가입 시 409 + DUPLICATE_EMAIL")
     void register_duplicate_email_returns_409() throws Exception {
         String body = """

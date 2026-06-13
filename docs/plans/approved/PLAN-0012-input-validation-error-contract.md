@@ -148,3 +148,5 @@ supersede 아닌 amend. **구현 전 ADR 개정 먼저.**
 ## Execution Notes
 
 <!-- 실행 중 비자명한 결정만 시간순 append -->
+
+- 2026-06-13: 구현 완료. (1) `Email.isValid`/`Nickname.isValidDisplay` static 정책 메서드 추출 — VO 생성자도 재사용해 규칙 단일 출처. `normalize` 는 isValid 통과 후 호출되는 private(non-null 전제)로 단순화(이전 nullable 반환안 폐기), `Locale.ROOT` 유지(locale 의존 lowercase=터키 I 회피). (2) `PasswordHash` blank → `IllegalStateException`(plain, BusinessException 아님 → 5xx). (3) `@ValidEmail`/`@ValidNickname`/`@MaxUtf8Bytes` 신설 — null/blank 는 통과시켜 `@NotBlank` 가 존재 검사 담당(중복 errors 회피, 표준 idiom). RegisterRequest email/nickname `@Size` 제거. (4) `UserCommandService.validatePassword` byte/min 검사 **유지**(필수 백스톱, 비-웹 BCrypt truncation 방어) — 경계는 1차 방어이지 대체 아님(변경 없음). (5) `errors[]` 셰이프·`GlobalExceptionHandler` 불변. `./gradlew check` 그린 — AuthE2EIT 12(email 형식/nickname 문자/password 75byte → VALIDATION_FAILED + field-level errors 검증).
