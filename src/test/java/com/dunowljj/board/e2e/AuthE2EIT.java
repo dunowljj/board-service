@@ -19,6 +19,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -171,7 +173,8 @@ class AuthE2EIT {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
-                .andExpect(jsonPath("$.errors[?(@.field == 'email')]").isNotEmpty());
+                // errors[].reason 은 프론트가 그대로 표시하는 사용자용 메시지 (code 미도입)
+                .andExpect(jsonPath("$.errors[?(@.field == 'email')].reason", hasItem(containsString("이메일"))));
     }
 
     @Test
@@ -184,7 +187,7 @@ class AuthE2EIT {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
-                .andExpect(jsonPath("$.errors[?(@.field == 'nickname')]").isNotEmpty());
+                .andExpect(jsonPath("$.errors[?(@.field == 'nickname')].reason", hasItem(containsString("닉네임"))));
     }
 
     @Test
@@ -198,7 +201,7 @@ class AuthE2EIT {
                                 """.formatted(password)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
-                .andExpect(jsonPath("$.errors[?(@.field == 'password')]").isNotEmpty());
+                .andExpect(jsonPath("$.errors[?(@.field == 'password')].reason", hasItem(containsString("비밀번호"))));
     }
 
     @Test

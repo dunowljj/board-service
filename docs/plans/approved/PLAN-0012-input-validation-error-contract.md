@@ -16,7 +16,7 @@ password byte 길이 검증을 **경계(Bean Validation)로 끌어올려**, User
    `VALIDATION_FAILED` 로 수렴하도록 경계 커스텀 제약으로 끌어올림 (VO 까지 흘러
    `INVALID_USER_CONTENT` 가 *되지 않음*). *uniqueness 중복은 본 Plan 대상 아님* — `DUPLICATE_EMAIL`/
    `DUPLICATE_NICKNAME` (409) 그대로 유지.
-2. 경계 validator 가 도메인 VO 규칙(정규식·길이 상수)을 **단일 출처로 공유** — divergence 제거.
+2. 경계 validator 가 도메인 VO *정책 메서드*(`Email.isValid` / `Nickname.isValidDisplay`)를 **단일 출처로 공유** — 정규식/길이뿐 아니라 trim/normalize 순서까지 단일화해 divergence 제거.
 3. **내부 불변식 분리** — `PasswordHash` blank 등 *사용자 입력이 아닌* 불변식 위반은 400 이 아니라
    5xx (서버 버그).
 4. `errors[]` 셰이프(`{field, reason}`) **불변**, `GlobalExceptionHandler` **미변경** → Post DTO /
@@ -25,15 +25,17 @@ password byte 길이 검증을 **경계(Bean Validation)로 끌어올려**, User
 ## Scope
 
 - **커스텀 경계 제약**:
-  - `@ValidEmail` / `@ValidNickname` — ConstraintValidator 가 도메인 VO 규칙(정규식·길이 상수)을
-    재사용. trim 후 길이 + 형식/문자를 *단일* 검증.
+  - `@ValidEmail` / `@ValidNickname` — ConstraintValidator 가 도메인 VO *정책 메서드*
+    (`Email.isValid` / `Nickname.isValidDisplay`)를 재사용. trim 후 길이 + 형식/문자를 *단일* 검증.
   - `@MaxUtf8Bytes(72)` — password byte 길이(BCrypt truncation 한계) 경계 검증.
 - **RegisterRequest 애너테이션 정리** (중복/불일치 제거):
   - email: `@Size` 제거 → `@NotBlank` + `@ValidEmail`.
   - nickname: `@Size` 제거 → `@NotBlank` + `@ValidNickname`.
   - password: `@NotBlank` + `@Size(min = 8)`(char, trim 안 함) + `@MaxUtf8Bytes(72)`.
-- **도메인 VO 규칙 노출**: `Email`/`Nickname` 이 정규식·길이 상수를 공유 가능하게 노출(validator 가
-  참조). VO 자체 검증은 비-웹 경로 백스톱으로 유지(§5 "DTO 가 도메인 검증 대체 안 함").
+- **도메인 VO 정책 메서드 노출**: `Email`/`Nickname` 이 *정책 메서드*(`isValid`/`isValidDisplay`,
+  필요 시 `normalize`)를 노출하고 VO 생성자도 그 메서드를 재사용(정규화+검증 단일 출처, 상수 단독
+  노출 지양). validator 가 이 메서드를 호출. VO 자체 검증은 비-웹 경로 백스톱으로 유지
+  (§5 "DTO 가 도메인 검증 대체 안 함").
 - **내부 불변식 분리**: `PasswordHash` 는 *해시 출력 / DB 값만* 받고 평문(사용자 입력)을 접촉하지
   않는다. blank 가드 위반은 클라이언트가 고칠 수 없는 서버/데이터 조건이므로
   `BusinessException`(`INVALID_USER_CONTENT`, 400) 이 아니라 **plain RuntimeException** 으로 던져
@@ -63,6 +65,9 @@ password byte 길이 검증을 **경계(Bean Validation)로 끌어올려**, User
 - invalid email 형식 / nickname 허용 외 문자 / password > 72 byte 로 register → **`VALIDATION_FAILED`
   (400)** + 기존 `errors[]`(`{field, reason}`) 셰이프. (VO 까지 흘러 `INVALID_USER_CONTENT` 가
   *되지 않음*)
+- **`errors[].reason` 사용자 표시용 고정**: `errors[].code` 미도입 동안 프론트의 필드별 표시 메시지는
+  `reason` 이 유일하므로, `@ValidEmail`/`@ValidNickname`/`@MaxUtf8Bytes` 의 기본 `message` 는 *사용자에게
+  바로 보여줄 한국어 문장*으로 정의하고, E2E 가 해당 `errors[].reason` 을 검증한다.
 - email/nickname 길이를 `@Size` 와 커스텀이 **이중으로 안 잡음** (중복 `errors` 없음) — `@Size` 제거.
 - 규칙(email 정규식, nickname 문자·길이, email 길이)이 경계 validator 와 도메인 VO 에서 **동일
   정의 공유** — 한쪽만 바꿔도 다른 쪽 따라가는지 테스트로 고정.
@@ -135,8 +140,9 @@ supersede 아닌 amend. **구현 전 ADR 개정 먼저.**
 - **null/blank 처리**: 커스텀 validator 는 `value == null || value.isBlank()` 면 `true`(valid) 반환
   (`@NotBlank` 가 빈 값 책임). 비어있지 않을 때만 trim 후 길이+형식/문자 검사.
 - **`@MaxUtf8Bytes`**: `value.getBytes(UTF_8).length <= max`. password 에 적용(trim 안 함).
-- **passwordHash blank**: `PasswordHash` 는 *해시/DB 값만* 받으므로(평문 미접촉) blank 는 BCrypt(절대
-  non-blank 반환) / DB(`NOT NULL`) 위반 = 서버·데이터 조건. BusinessException 아님 → plain
+- **passwordHash blank**: `PasswordHash` 는 *해시 산출물 / DB 복원값만* 받으므로(평문 미접촉) blank 는
+  BCrypt(non-blank 반환) 가정 하에 hasher 오설정 / DB 데이터 손상 = 서버·데이터 조건. (DB `NOT NULL`
+  은 null 만 막고 `""` 는 못 막음 — 컬럼 차원 차단은 `CHECK` 별도 의제.) BusinessException 아님 → plain
   RuntimeException(예: `IllegalStateException`) → `GlobalExceptionHandler` catch-all 5xx
   (`INTERNAL_ERROR`). 정상 입력으론 도달 불가한 방어 가드 — *상류 password 정책
   (@NotBlank/validatePassword)에 의존하지 않고* 성립(구조적 분류).
