@@ -66,8 +66,9 @@ password byte 길이 검증을 **경계(Bean Validation)로 끌어올려**, User
   (400)** + 기존 `errors[]`(`{field, reason}`) 셰이프. (VO 까지 흘러 `INVALID_USER_CONTENT` 가
   *되지 않음*)
 - **`errors[].reason` 사용자 표시용 고정**: `errors[].code` 미도입 동안 프론트의 필드별 표시 메시지는
-  `reason` 이 유일하므로, `@ValidEmail`/`@ValidNickname`/`@MaxUtf8Bytes` 의 기본 `message` 는 *사용자에게
-  바로 보여줄 한국어 문장*으로 정의하고, E2E 가 해당 `errors[].reason` 을 검증한다.
+  `reason` 이 유일하므로, RegisterRequest 의 *모든* 제약(`@ValidEmail`/`@ValidNickname`/`@MaxUtf8Bytes`
+  뿐 아니라 `@NotBlank`/`@Size` 포함)에 *사용자에게 바로 보여줄 한국어 메시지*를 명시(프레임워크
+  영문 기본 메시지 누출 방지)하고, E2E 가 각 제약의 `errors[].reason` 을 *exact* 검증한다.
 - email/nickname 길이를 `@Size` 와 커스텀이 **이중으로 안 잡음** (중복 `errors` 없음) — `@Size` 제거.
 - 규칙(email 정규식, nickname 문자·길이, email 길이)이 경계 validator 와 도메인 VO 에서 **동일
   정의 공유** — 한쪽만 바꿔도 다른 쪽 따라가는지 테스트로 고정.
@@ -156,3 +157,4 @@ supersede 아닌 amend. **구현 전 ADR 개정 먼저.**
 <!-- 실행 중 비자명한 결정만 시간순 append -->
 
 - 2026-06-13: 구현 완료. (1) `Email.isValid`/`Nickname.isValidDisplay` static 정책 메서드 추출 — VO 생성자도 재사용해 규칙 단일 출처. `normalize` 는 isValid 통과 후 호출되는 private(non-null 전제)로 단순화(이전 nullable 반환안 폐기), `Locale.ROOT` 유지(locale 의존 lowercase=터키 I 회피). (2) `PasswordHash` blank → `IllegalStateException`(plain, BusinessException 아님 → 5xx). (3) `@ValidEmail`/`@ValidNickname`/`@MaxUtf8Bytes` 신설 — null/blank 는 통과시켜 `@NotBlank` 가 존재 검사 담당(중복 errors 회피, 표준 idiom). RegisterRequest email/nickname `@Size` 제거. (4) `UserCommandService.validatePassword` byte/min 검사 **유지**(필수 백스톱, 비-웹 BCrypt truncation 방어) — 경계는 1차 방어이지 대체 아님(변경 없음). (5) `errors[]` 셰이프·`GlobalExceptionHandler` 불변. `./gradlew check` 그린 — AuthE2EIT 12(email 형식/nickname 문자/password 75byte → VALIDATION_FAILED + field-level errors 검증).
+- 2026-06-15: 리뷰 round-5 반영. `errors[].reason` = 사용자 표시 계약을 *완전히* 닫음 — RegisterRequest 의 `@NotBlank`(email/nickname/password)·`@Size(min=8)` 에 한국어 메시지 명시(프레임워크 영문 기본 누출 차단). AuthE2EIT 의 custom validator 3건 reason 검증을 containsString → **exact** 로 강화 + blank 필드(@NotBlank 3건)·8자 미만 password(@Size) 경로 테스트 추가(14건). PasswordHash 주석의 "DB NOT NULL → blank" 오인 표현 정정(해시 산출물/DB 복원값이라 blank=서버·데이터 손상; NOT NULL 은 "" 못 막음).
