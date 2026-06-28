@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasItem;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -159,6 +160,75 @@ class AuthE2EIT {
                                 """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value("AUTHENTICATION_FAILED"));
+    }
+
+    @Test
+    @DisplayName("register: email 형식 오류는 경계에서 VALIDATION_FAILED (INVALID_USER_CONTENT 아님)")
+    void register_invalid_email_format_returns_validation_failed() throws Exception {
+        mockMvc.perform(post("/api/auth/register").with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"email":"not-an-email","nickname":"alice","password":"secret123"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                // errors[].reason 은 프론트가 그대로 표시하는 사용자용 메시지 (code 미도입) — exact 고정
+                .andExpect(jsonPath("$.errors[?(@.field == 'email')].reason", hasItem("이메일 형식이 올바르지 않습니다")));
+    }
+
+    @Test
+    @DisplayName("register: nickname 허용 외 문자는 경계에서 VALIDATION_FAILED")
+    void register_invalid_nickname_chars_returns_validation_failed() throws Exception {
+        mockMvc.perform(post("/api/auth/register").with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"email":"alice@example.com","nickname":"bad nick!","password":"secret123"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'nickname')].reason", hasItem("닉네임은 한글·영문·숫자·_·- 로 2~20자여야 합니다")));
+    }
+
+    @Test
+    @DisplayName("register: password 가 72 byte 초과(멀티바이트, char 수는 통과)면 경계에서 VALIDATION_FAILED")
+    void register_password_over_72_bytes_returns_validation_failed() throws Exception {
+        String password = "가".repeat(25); // 25 chars, UTF-8 75 bytes (> 72) — @Size(char) 통과, @MaxUtf8Bytes 차단
+        mockMvc.perform(post("/api/auth/register").with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"email":"alice@example.com","nickname":"alice","password":"%s"}
+                                """.formatted(password)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'password')].reason", hasItem("비밀번호가 너무 깁니다")));
+    }
+
+    @Test
+    @DisplayName("register: 빈 값은 @NotBlank 한국어 메시지로 VALIDATION_FAILED (프레임워크 영문 기본 메시지 안 섞임)")
+    void register_blank_fields_return_korean_required_messages() throws Exception {
+        mockMvc.perform(post("/api/auth/register").with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"email":"","nickname":"","password":""}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'email')].reason", hasItem("이메일을 입력해주세요")))
+                .andExpect(jsonPath("$.errors[?(@.field == 'nickname')].reason", hasItem("닉네임을 입력해주세요")))
+                .andExpect(jsonPath("$.errors[?(@.field == 'password')].reason", hasItem("비밀번호를 입력해주세요")));
+    }
+
+    @Test
+    @DisplayName("register: 8자 미만 password 는 @Size 한국어 메시지로 VALIDATION_FAILED")
+    void register_short_password_returns_korean_size_message() throws Exception {
+        mockMvc.perform(post("/api/auth/register").with(csrf())
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"email":"alice@example.com","nickname":"alice","password":"short"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'password')].reason", hasItem("비밀번호는 8자 이상이어야 합니다")));
     }
 
     @Test

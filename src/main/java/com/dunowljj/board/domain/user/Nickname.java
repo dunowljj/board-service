@@ -23,18 +23,26 @@ public final class Nickname {
     private final String canonical;
 
     public Nickname(String input) {
-        if (input == null) {
+        if (!isValidDisplay(input)) {
             throw new InvalidUserContentException("nickname");
         }
         String trimmed = input.trim();
-        if (trimmed.length() < MIN_LENGTH || trimmed.length() > MAX_LENGTH) {
-            throw new InvalidUserContentException("nickname");
-        }
-        if (!ALLOWED.matcher(trimmed).matches()) {
-            throw new InvalidUserContentException("nickname");
-        }
         this.display = Normalizer.normalize(trimmed, Normalizer.Form.NFC);
         this.canonical = Normalizer.normalize(trimmed, Normalizer.Form.NFKC).toLowerCase(Locale.ROOT);
+    }
+
+    /**
+     * 길이·허용 문자 정책의 단일 출처 (trim 후 기준, ADR-0005 §5.1). 경계 커스텀
+     * validator(`@ValidNickname`)가 이 메서드를 재사용해 규칙 divergence 방지.
+     */
+    public static boolean isValidDisplay(String input) {
+        if (input == null) {
+            return false;
+        }
+        String trimmed = input.trim();
+        return trimmed.length() >= MIN_LENGTH
+                && trimmed.length() <= MAX_LENGTH
+                && ALLOWED.matcher(trimmed).matches();
     }
 
     /** 영속 복원 자리 — 검증 없이 두 값 직접 주입. */
