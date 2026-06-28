@@ -80,7 +80,7 @@ class NicknameTest {
     }
 
     @Test
-    @DisplayName("Nickname.isValidDisplay 정책 메서드를 직접 호출 — VO·validator 공유 단일 출처 계약 고정")
+    @DisplayName("Nickname.isValidDisplay 정책 메서드의 판정 계약 (허용/거부 케이스)")
     void isValidDisplay_policy_method_contract() {
         assertThat(Nickname.isValidDisplay("alice")).isTrue();
         assertThat(Nickname.isValidDisplay("관리자")).isTrue();

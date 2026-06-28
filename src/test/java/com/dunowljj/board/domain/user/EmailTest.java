@@ -59,7 +59,7 @@ class EmailTest {
     }
 
     @Test
-    @DisplayName("Email.isValid 정책 메서드를 직접 호출 — VO·validator 공유 단일 출처 계약 고정")
+    @DisplayName("Email.isValid 정책 메서드의 형식 판정 계약 (true/false 케이스)")
     void isValid_policy_method_contract() {
         assertThat(Email.isValid("alice@example.com")).isTrue();
         assertThat(Email.isValid("  Alice@Example.COM  ")).isTrue(); // trim + lower 후 통과

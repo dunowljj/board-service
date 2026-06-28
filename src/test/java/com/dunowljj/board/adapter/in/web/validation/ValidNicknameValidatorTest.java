@@ -42,4 +42,15 @@ class ValidNicknameValidatorTest {
         assertThat(Nickname.isValidDisplay("   ")).isFalse();
         assertThat(validator.isValid("   ", null)).isTrue();
     }
+
+    @Test
+    @DisplayName("nonblank 입력에서 validator 결과가 Nickname.isValidDisplay 와 일치한다 — 규칙 단일 출처(공유) 회귀 가드")
+    void agrees_with_policy_for_nonblank_inputs() {
+        for (String s : new String[]{
+                "alice", "관리자", "a", "a".repeat(21), "alice bob", "alice@bob"}) {
+            assertThat(validator.isValid(s, null))
+                    .as("input=%s", s)
+                    .isEqualTo(Nickname.isValidDisplay(s));
+        }
+    }
 }

@@ -23,7 +23,7 @@ class ValidEmailValidatorTest {
     }
 
     @Test
-    @DisplayName("형식이 잘못되면 위반(false) — @ValidEmail message 가 errors[].reason 이 됨")
+    @DisplayName("형식이 잘못되면 false 를 반환한다")
     void invalid_format_fails() {
         assertThat(validator.isValid("not-an-email", null)).isFalse();
     }
@@ -41,5 +41,19 @@ class ValidEmailValidatorTest {
         // 의도적으로 반대다. validator 가 blank 를 통과시켜야 빈 값에 @NotBlank 메시지만 1건 나온다.
         assertThat(Email.isValid("   ")).isFalse();
         assertThat(validator.isValid("   ", null)).isTrue();
+    }
+
+    @Test
+    @DisplayName("nonblank 입력에서 validator 결과가 Email.isValid 와 일치한다 — 규칙 단일 출처(공유) 회귀 가드")
+    void agrees_with_policy_for_nonblank_inputs() {
+        // null/blank 는 가드로 갈라지므로 nonblank 표본에 한해 위임 동치를 고정 — validator 가 규칙을
+        // 자체 재구현해 정책 메서드와 divergence 하면 이 테스트가 깨진다.
+        for (String s : new String[]{
+                "alice@example.com", "Bob@Example.COM", "  trim@me.com  ",
+                "not-an-email", "a@b", "no-at-symbol"}) {
+            assertThat(validator.isValid(s, null))
+                    .as("input=%s", s)
+                    .isEqualTo(Email.isValid(s));
+        }
     }
 }

@@ -52,4 +52,12 @@ class MaxUtf8BytesValidatorTest {
     void null_passes_deferring_to_notblank() {
         assertThat(validator.isValid(null, null)).isTrue();
     }
+
+    @Test
+    @DisplayName("blank 는 byte 상한을 넘어도 통과(true) — blank 검사는 @NotBlank 책임 (다른 validator 와 동일 가드)")
+    void blank_passes_even_when_over_limit() {
+        // " ".repeat(73) = 73 byte > 72 지만 blank → @NotBlank 가 담당. byte 검사가 같이 위반을 내면
+        // password 에 errors 가 중복되므로 가드에서 통과시킨다.
+        assertThat(validator.isValid(" ".repeat(73), null)).isTrue();
+    }
 }
