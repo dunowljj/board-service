@@ -78,4 +78,16 @@ class NicknameTest {
                 .withOnlyTheseFields("canonical")
                 .verify();
     }
+
+    @Test
+    @DisplayName("Nickname.isValidDisplay 정책 메서드의 판정 계약 (허용/거부 케이스)")
+    void isValidDisplay_policy_method_contract() {
+        assertThat(Nickname.isValidDisplay("alice")).isTrue();
+        assertThat(Nickname.isValidDisplay("관리자")).isTrue();
+        assertThat(Nickname.isValidDisplay("a")).isFalse();            // 너무 짧음
+        assertThat(Nickname.isValidDisplay("a".repeat(21))).isFalse(); // 너무 김
+        assertThat(Nickname.isValidDisplay("alice bob")).isFalse();    // 공백
+        assertThat(Nickname.isValidDisplay("alice@bob")).isFalse();    // 특수문자
+        assertThat(Nickname.isValidDisplay(null)).isFalse();
+    }
 }

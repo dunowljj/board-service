@@ -47,10 +47,24 @@ class EmailTest {
     }
 
     @Test
-    @DisplayName("대소문자 차이만 있는 두 입력은 같은 Email 로 평가된다")
-    void case_variants_are_equal() {
+    @DisplayName("정규화로 대소문자만 다른 입력은 동일 value 가 되고, 그 결과 equals 가 같다고 본다")
+    void case_variants_normalize_to_same_value() {
         Email a = new Email("Alice@Example.com");
         Email b = new Email("alice@example.com");
+        // 원인: normalize 가 둘을 같은 canonical value 로 접는다 (equals 가 ignoreCase 인 게 아님 —
+        // equals 는 평범한 value 비교, 위 equals_and_hashCode_contract 가 그 점을 보장).
+        assertThat(a.value()).isEqualTo(b.value());
+        // 결과: 같은 value 이므로 평범한 equals 가 동일로 판정.
         assertThat(a).isEqualTo(b);
+    }
+
+    @Test
+    @DisplayName("Email.isValid 정책 메서드의 형식 판정 계약 (true/false 케이스)")
+    void isValid_policy_method_contract() {
+        assertThat(Email.isValid("alice@example.com")).isTrue();
+        assertThat(Email.isValid("  Alice@Example.COM  ")).isTrue(); // trim + lower 후 통과
+        assertThat(Email.isValid("not-an-email")).isFalse();
+        assertThat(Email.isValid(null)).isFalse();
+        assertThat(Email.isValid("   ")).isFalse(); // blank → 정규화 후 empty → false
     }
 }
