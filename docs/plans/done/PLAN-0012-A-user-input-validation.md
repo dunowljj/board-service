@@ -1,4 +1,7 @@
-# PLAN-0012: User 입력 검증 경계 통일
+# PLAN-0012-A: User 입력 검증 경계 통일
+
+> **패밀리 노트**: ADR-0005 §5(검증 책임 분리) 통일 결정의 슬라이스 A(User). 형제: **-B** Post
+> 경계 통일, **-C** `errors[].code` 전역 도입(deferred). 슬라이스별로 별도 Plan·PR·archival.
 
 ADR-0005 (예외/에러 응답 정책) §5(검증 책임 분리) 정합·강화. email/nickname 형식·문자·길이,
 password byte 길이 검증을 **경계(Bean Validation)로 끌어올려**, User 입력 실패가 도메인 VO
