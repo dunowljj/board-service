@@ -6,6 +6,7 @@ Proposed
 
 **Amended 2026-06-13 (PLAN-0012)**: §5.1 추가 — User 입력 검증 경계 통일(커스텀 validator 가 VO 정책 메서드 공유), 내부 불변식(`PasswordHash` blank 등) = plain 예외 → 5xx 구분. 안정적 `errors[].code` 전역 도입은 후속 Plan 으로 deferred(셰이프 불변).
 **Amended 2026-06-28 (PLAN-0012)**: §5.1 에 *설계 근거 2건* 명시 추가 — (1) validator null-pass(`@NotBlank` 책임 분담)는 *다중 에러 동시 보고(aggregation)*를 위한 의도된 선택이며 `@GroupSequence` 전역 단락은 폼 UX 퇴보라 거부, (2) 복잡 검증의 *애플리케이션 계층 이관 기준*(필드간 의존/I·O/도메인 상태/문맥/풍부한 에러 구조)과 리트머스. 정책 변경 아님 — 기존 결정의 근거 문서화.
+**Amended 2026-07-05 (PLAN-0012-B)**: §5.1 에 *Post 적용* 명시 — 레거시 Post(PLAN-0004, §5 이전 생성)를 동일 표준으로 통일. 제목/본문 길이 한도를 도메인 `PostContent` 상수로 단일화하고 경계 `@Size` 가 그 상수를 참조, VO 가 같은 상수로 비-웹 백스톱을 강제(§5 "DTO 가 도메인 검증 대체 안 함"). Post 는 규칙이 *길이 int* 뿐이라 -A 와 달리 *커스텀 validator 없이 상수 공유*(로직-중복은 등가성 테스트로 방어). errors[].reason 한국어 계약을 Post 제약에도 확장. 새 결정 아님 — §5 표준의 Post 적용 + 아래 원장의 Post 마이그레이션 resolved.
 
 ## Date
 2026-04-26
@@ -173,6 +174,7 @@ User 입력(email/nickname 형식·문자·길이, password byte 길이) 검증�
   5. **에러 구조가 `{field, reason}` 보다 풍부해야 함** — 머신 code, 중첩/배열 path, 비즈니스 분류 등.
 
   리트머스 한 줄: *"이 한 필드의 값만 보고, DB·다른 필드·도메인 상태 없이 통과/실패를 정할 수 있나?"* — **예 → 경계 Bean Validation**(현행), **아니오 → 애플리케이션 계층 명시 검증**. 이는 §5 의 "경계=형식(syntactic) / 도메인=의미(semantic)" 분리와 일치한다.
+- **Post 적용 (PLAN-0012-B, 2026-07-05).** 레거시 Post 도 위 표준을 따른다. 제목/본문 길이 한도는 도메인 `PostContent` 의 `static final int MAX_TITLE_LENGTH`/`MAX_BODY_LENGTH` 가 단일 출처이고, 경계 DTO(`CreatePostRequest`/`UpdatePostRequest`)의 `@Size(max = 상수)` 가 이를 참조, `PostContent` 생성자가 같은 상수로 길이를 강제(비-웹 백스톱). *단, User(-A)와 달리 커스텀 validator 를 두지 않는다* — Post 규칙은 형식/정규화 없는 *길이 int* 뿐이라 `@Size` 로 충분하고 커스텀 제약은 YAGNI. 대신 `@Size`(Hibernate)와 VO 가 길이 비교를 독립 구현(상수만 공유)하는 좁은 divergence(측정·연산자·trim)는 *등가성 테스트*(경계 판정 == VO 판정, 경계값·trim·codePoint 벡터)로 고정. `errors[].reason` 한국어 계약은 Post 제약에도 확장. `errors[]` 셰이프·web 응답 계약 불변(경계가 이미 `VALIDATION_FAILED` 수렴).
 - **deferred.** 안정적 `errors[].code`(머신 코드)의 *전역* 도입(모든 제약 + `GlobalExceptionHandler` + Post/query 갱신)은 별도 Plan (i18n/프로그램적 분기 필요 시점). 본 amend 는 `errors[]` 셰이프(`{field, reason}`)를 바꾸지 않는다.
 
 ### 6. 도메인 예외 세분화 — 점진적 분해
@@ -290,7 +292,8 @@ Phase 2 도중 골격 수정이 필요해지면 **별도 후속 Plan으로 분�
 - 인증/인가 정책 (Spring Security 도입 시) — 보안/남용 4xx의 metric·alert·차단 정책 포함 (§7 범위 제한 참조)
 - **입력 검증 에러 계약 통일** (PLAN-0011 리뷰에서 발견 2026-06-07 → **§5.1 / PLAN-0012 로 부분 해소** 2026-06-13)
   - **§5.1(PLAN-0012)로 해소됨**: ① email 형식 / nickname 허용문자가 경계 커스텀 validator(`@ValidEmail`/`@ValidNickname`, VO 정책 메서드 공유)로 잡혀 `VALIDATION_FAILED` 로 수렴(더 이상 `INVALID_USER_CONTENT` 로 새지 않음). ② `PasswordHash` blank 등 *내부 불변식*을 사용자 입력 오류에서 분리(plain 예외 → 5xx). ④ DTO/VO 규칙 이중정의 → *정책 메서드 단일 출처*화.
-  - **남은 후속 (별도 Plan)**: ③ 안정적 `errors[].code`(머신 코드)의 *전역* 도입(모든 제약 + `GlobalExceptionHandler` + Post/query 갱신) — i18n / 프로그램적 분기 필요 시점에. + Post(`InvalidPostContentException`)의 동일 계약 마이그레이션. (현재 i18n 불필요 확인 2026-06-13 → 보류. 그동안 프론트의 필드별 표시 메시지는 `errors[].reason` 이 담당.)
+  - **Post 마이그레이션 해소됨 (PLAN-0012-B, 2026-07-05)**: Post 제목/본문 길이·존재 검증이 경계(`@Size`/`@NotBlank`/`@NotNull`, 상수 단일 출처) + VO 백스톱으로 통일되고 `errors[].reason` 한국어 계약이 Post 로 확장됨(§5.1 "Post 적용" 참조). Post 는 web 에서 이미 `VALIDATION_FAILED` 로 수렴했으므로 누출 수정이 아니라 단일 출처·백스톱·패턴 정합.
+  - **남은 후속 (별도 Plan)**: ③ 안정적 `errors[].code`(머신 코드)의 *전역* 도입(모든 제약 + `GlobalExceptionHandler` + Post/query 갱신) — i18n / 프로그램적 분기 필요 시점에. (현재 i18n 불필요 확인 2026-06-13 → 보류. 그동안 프론트의 필드별 표시 메시지는 `errors[].reason` 이 담당.)
 
 ## Related
 

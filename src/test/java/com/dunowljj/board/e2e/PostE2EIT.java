@@ -1,6 +1,7 @@
 package com.dunowljj.board.e2e;
 
 import com.dunowljj.board.config.PostgresTestcontainersConfig;
+import com.dunowljj.board.domain.post.PostContent;
 import com.jayway.jsonpath.JsonPath;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,6 +17,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.matchesPattern;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -135,5 +137,50 @@ class PostE2EIT {
                 .andExpect(jsonPath("$.code").value("POST_NOT_FOUND"))
                 .andExpect(header().string("X-Trace-Id",
                         matchesPattern("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")));
+    }
+
+    @Test
+    @DisplayName("Post 제약 위반은 VALIDATION_FAILED + errors[].reason 한국어 exact (프레임워크 영문 누출 없음)")
+    void post_constraint_violations_return_korean_exact_reasons() throws Exception {
+        // ① title "" → @NotBlank, ② body null → @NotNull (create)
+        mockMvc.perform(authed(post("/api/posts"))
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"title":"","body":null}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'title')].reason", hasItem("제목을 입력해주세요")))
+                .andExpect(jsonPath("$.errors[?(@.field == 'body')].reason", hasItem("본문을 입력해주세요")));
+
+        // ③ title 과길이 → @Size (create)
+        String longTitle = "a".repeat(PostContent.MAX_TITLE_LENGTH + 1);
+        mockMvc.perform(authed(post("/api/posts"))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"title\":\"" + longTitle + "\",\"body\":\"ok\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'title')].reason",
+                        hasItem("제목은 " + PostContent.MAX_TITLE_LENGTH + "자 이하여야 합니다")));
+
+        // ④ body 과길이 → @Size (create)
+        String longBody = "b".repeat(PostContent.MAX_BODY_LENGTH + 1);
+        mockMvc.perform(authed(post("/api/posts"))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"title\":\"ok\",\"body\":\"" + longBody + "\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'body')].reason",
+                        hasItem("본문은 " + PostContent.MAX_BODY_LENGTH + "자 이하여야 합니다")));
+
+        // UpdatePostRequest 도 동일 메시지를 낸다 — DTO 검증은 컨트롤러 본문(404 조회) 전에 돌므로
+        // 존재하지 않는 id 로도 VALIDATION_FAILED 가 먼저 응답된다.
+        mockMvc.perform(authed(put("/api/posts/1"))
+                        .contentType(APPLICATION_JSON)
+                        .content("{\"title\":\"" + longTitle + "\",\"body\":\"ok\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'title')].reason",
+                        hasItem("제목은 " + PostContent.MAX_TITLE_LENGTH + "자 이하여야 합니다")));
     }
 }

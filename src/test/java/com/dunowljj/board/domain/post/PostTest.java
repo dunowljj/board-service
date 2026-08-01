@@ -104,4 +104,27 @@ class PostTest {
         assertThat(post.getTitle()).isEqualTo("t2");
         assertThat(post.getBody()).isEqualTo("b2");
     }
+
+    @Test
+    @DisplayName("생성 시 제목이 한도를 넘으면 게시글을 생성할 수 없다 (비-웹 백스톱)")
+    void create_throws_when_title_too_long() {
+        assertThatThrownBy(() -> Post.create("t".repeat(PostContent.MAX_TITLE_LENGTH + 1), "b", 1L))
+                .isInstanceOf(InvalidPostContentException.class);
+    }
+
+    @Test
+    @DisplayName("생성 시 본문이 한도를 넘으면 게시글을 생성할 수 없다 (비-웹 백스톱)")
+    void create_throws_when_body_too_long() {
+        assertThatThrownBy(() -> Post.create("t", "b".repeat(PostContent.MAX_BODY_LENGTH + 1), 1L))
+                .isInstanceOf(InvalidPostContentException.class);
+    }
+
+    @Test
+    @DisplayName("내용 갱신 시 제목이 한도를 넘으면 갱신할 수 없다 (비-웹 백스톱)")
+    void updateContent_throws_when_title_too_long() {
+        Post post = PostFixtures.aValidPost();
+
+        assertThatThrownBy(() -> post.updateContent("t".repeat(PostContent.MAX_TITLE_LENGTH + 1), "b"))
+                .isInstanceOf(InvalidPostContentException.class);
+    }
 }

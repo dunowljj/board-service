@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class PostContentTest {
@@ -45,6 +46,24 @@ class PostContentTest {
     @DisplayName("본문이 null 이면 PostContent 를 생성할 수 없다")
     void constructor_throws_when_body_is_null() {
         assertThatThrownBy(() -> new PostContent("title", null))
+                .isInstanceOf(InvalidPostContentException.class);
+    }
+
+    @Test
+    @DisplayName("제목 길이 경계 — MAX 는 통과, MAX+1 은 InvalidPostContentException (비-웹 백스톱)")
+    void title_length_boundary() {
+        assertThatCode(() -> new PostContent("a".repeat(PostContent.MAX_TITLE_LENGTH), "body"))
+                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> new PostContent("a".repeat(PostContent.MAX_TITLE_LENGTH + 1), "body"))
+                .isInstanceOf(InvalidPostContentException.class);
+    }
+
+    @Test
+    @DisplayName("본문 길이 경계 — MAX 는 통과, MAX+1 은 InvalidPostContentException (비-웹 백스톱)")
+    void body_length_boundary() {
+        assertThatCode(() -> new PostContent("title", "b".repeat(PostContent.MAX_BODY_LENGTH)))
+                .doesNotThrowAnyException();
+        assertThatThrownBy(() -> new PostContent("title", "b".repeat(PostContent.MAX_BODY_LENGTH + 1)))
                 .isInstanceOf(InvalidPostContentException.class);
     }
 
