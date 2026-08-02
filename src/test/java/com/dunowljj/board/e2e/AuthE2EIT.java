@@ -172,7 +172,8 @@ class AuthE2EIT {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
-                // errors[].reason 은 프론트가 그대로 표시하는 사용자용 메시지 (code 미도입) — exact 고정
+                // code = 프로그램 분기용 안정 식별자, reason = 사용자 표시 문구 (ADR-0005 §5.2)
+                .andExpect(jsonPath("$.errors[?(@.field == 'email')].code", hasItem("INVALID_FORMAT")))
                 .andExpect(jsonPath("$.errors[?(@.field == 'email')].reason", hasItem("이메일 형식이 올바르지 않습니다")));
     }
 
@@ -186,6 +187,7 @@ class AuthE2EIT {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'nickname')].code", hasItem("INVALID_FORMAT")))
                 .andExpect(jsonPath("$.errors[?(@.field == 'nickname')].reason", hasItem("닉네임은 한글·영문·숫자·_·- 로 2~20자여야 합니다")));
     }
 
@@ -200,6 +202,8 @@ class AuthE2EIT {
                                 """.formatted(password)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                // @MaxUtf8Bytes(바이트)와 @Size(char) 는 같은 TOO_LONG 으로 수렴 — 차이는 reason 이 설명
+                .andExpect(jsonPath("$.errors[?(@.field == 'password')].code", hasItem("TOO_LONG")))
                 .andExpect(jsonPath("$.errors[?(@.field == 'password')].reason", hasItem("비밀번호가 너무 깁니다")));
     }
 
@@ -213,6 +217,9 @@ class AuthE2EIT {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'email')].code", hasItem("REQUIRED")))
+                .andExpect(jsonPath("$.errors[?(@.field == 'nickname')].code", hasItem("REQUIRED")))
+                .andExpect(jsonPath("$.errors[?(@.field == 'password')].code", hasItem("REQUIRED")))
                 .andExpect(jsonPath("$.errors[?(@.field == 'email')].reason", hasItem("이메일을 입력해주세요")))
                 .andExpect(jsonPath("$.errors[?(@.field == 'nickname')].reason", hasItem("닉네임을 입력해주세요")))
                 .andExpect(jsonPath("$.errors[?(@.field == 'password')].reason", hasItem("비밀번호를 입력해주세요")));
@@ -228,6 +235,7 @@ class AuthE2EIT {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'password')].code", hasItem("TOO_SHORT")))
                 .andExpect(jsonPath("$.errors[?(@.field == 'password')].reason", hasItem("비밀번호는 8자 이상이어야 합니다")));
     }
 

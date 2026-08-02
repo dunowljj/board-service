@@ -330,3 +330,9 @@ query 제약은 `PostController` 에만 있지만 컨트롤러는 4개(`Post`/`U
 ## Execution Notes
 
 <!-- 실행 중 비자명한 결정만 시간순 append -->
+
+- 2026-08-02: **unwrap 스파이크 결과 — 두 경로 모두 주경로로 성립.** `FieldError.unwrap(ConstraintViolation.class)`(RequestBody) / `ParameterValidationResult.unwrap(error, ConstraintViolation.class)`(query) 가 Boot 4.0.2 / Spring 7.0.3 에서 실제 위반을 돌려줌을 E2E 로 확인(query 케이스가 `OUT_OF_RANGE` 를 냈다는 것이 곧 unwrap 성공의 증거 — 실패했다면 이름 기반 fallback 으로 떨어져 `Min`→`OUT_OF_RANGE` 는 같았겠으나, `@Size` 방향 판정이 필요한 `TOO_LONG`/`TOO_SHORT` 케이스가 `INVALID` 로 깨졌을 것). `getCodes()` 는 계획대로 fallback 에만 둠.
+- 2026-08-02: **이름 기반 fallback 을 별도 매핑표로 만들지 않고 `BY_TYPE` 를 재사용.** 애너테이션 타입 표와 이름 표를 각각 두면 PLAN-0012-B 가 겪은 "상수만 공유하고 로직은 두 벌" 문제를 반복하게 된다 → `BY_TYPE` 의 키에서 `getSimpleName()` 으로 조회하는 방식으로 단일 출처 유지. `@Size` 는 속성이 없으면 방향을 못 가르므로 fallback 에서 보수적으로 `INVALID`.
+- 2026-08-02: **exhaustiveness 스캔에서 `RecordComponent.getAnnotations()` 사용 불가 판명.** jakarta 제약들의 `@Target` 에 `RECORD_COMPONENT` 가 없어 0건이 나온다(첫 구현이 이 때문에 실패). 컴포넌트 선언 애너테이션은 `@Target` 에 맞는 자리로 *전파*되므로 **필드 + 접근자 메서드 + 생성자 파라미터**를 훑도록 변경. 스캔이 고장나면 조용히 0건이 되어 가드가 무력화되므로, "스캔이 두 출처를 실제로 훑는다"를 별도 테스트로 고정(`scan_covers_both_sources`).
+- 2026-08-02: **Risks 7(로그 페이로드) — 확인 결과 조치 불필요.** `logValidationFailed` 의 `errors` key-value 가 `Map` → `ValidationError` record 로 바뀌어 출력 형태는 변하지만, 로그 출력을 단언하는 테스트가 저장소에 없고(`ListAppender`/`OutputCapture` 사용처 0건) 이 필드를 파싱하는 대시보드·알럿 설정도 없다. `code` 가 로그에 포함되는 것은 의도한 이득(관측에서 실패 종류 분기 가능)이므로 그대로 채택.
+- 2026-08-02: 구현 완료. `./gradlew check` BUILD SUCCESSFUL — unit 141건(신규 `ValidationErrorCodeTest` 8 + `ValidationErrorCodeCoverageTest` 2 포함), integrationTest 전체 그린(`AuthE2EIT` 14, `PostE2EIT` 4 — query 경로 신규 1건 포함). 기존 `reason` exact 단언은 하나도 수정하지 않았고 `PostControllerTest`(19건)도 무변경 — **`field`/`reason` 값 불변 = 회귀 0** 이 이로써 확인됨.
