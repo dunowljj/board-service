@@ -8,6 +8,8 @@ Proposed
 **Amended 2026-06-28 (PLAN-0012)**: §5.1 에 *설계 근거 2건* 명시 추가 — (1) validator null-pass(`@NotBlank` 책임 분담)는 *다중 에러 동시 보고(aggregation)*를 위한 의도된 선택이며 `@GroupSequence` 전역 단락은 폼 UX 퇴보라 거부, (2) 복잡 검증의 *애플리케이션 계층 이관 기준*(필드간 의존/I·O/도메인 상태/문맥/풍부한 에러 구조)과 리트머스. 정책 변경 아님 — 기존 결정의 근거 문서화.
 **Amended 2026-07-05 (PLAN-0012-B)**: §5.1 에 *Post 적용* 명시 — 레거시 Post(PLAN-0004, §5 이전 생성)를 동일 표준으로 통일. 제목/본문 길이 한도를 도메인 `PostContent` 상수로 단일화하고 경계 `@Size` 가 그 상수를 참조, VO 가 같은 상수로 비-웹 백스톱을 강제(§5 "DTO 가 도메인 검증 대체 안 함"). Post 는 규칙이 *길이 int* 뿐이라 -A 와 달리 *커스텀 validator 없이 상수 공유*(로직-중복은 등가성 테스트로 방어). errors[].reason 한국어 계약을 Post 제약에도 확장. 새 결정 아님 — §5 표준의 Post 적용 + 아래 원장의 Post 마이그레이션 resolved.
 
+**Amended 2026-08-02 (PLAN-0012-C)**: §5.2 추가 — `errors[]` 엔트리에 안정적 머신 코드 `code` 도입(`{field, reason}` → `{field, code, reason}`, additive). 어휘 6개(`REQUIRED`/`TOO_SHORT`/`TOO_LONG`/`OUT_OF_RANGE`/`INVALID_FORMAT`/`INVALID`)를 web adapter `ValidationErrorCode` 가 소유하고, 제약 애너테이션 타입에서 **핸들러 중앙 파생**(제약 선언에 code 미기재). §4 응답 예제 갱신, §5.1 이관 기준 5번에서 "머신 code"를 이관 사유에서 제외(경계가 제공하게 되었으므로), 원장 ③ resolved. PLAN-0012 패밀리(-A/-B/-C) 종료.
+
 ## Date
 2026-04-26
 
@@ -125,7 +127,7 @@ RuntimeException
   "code": "VALIDATION_FAILED",
   "timestamp": "...",
   "errors": [
-    { "field": "title", "reason": "must not be blank" }
+    { "field": "title", "code": "REQUIRED", "reason": "제목을 입력해주세요" }
   ]
 }
 ```
@@ -134,7 +136,7 @@ RuntimeException
 - 커스텀 property `code`는 우리 `ErrorCode` 카탈로그의 SCREAMING_SNAKE_CASE 값. 클라이언트가 분기 처리할 때 가장 안정적인 키.
 - 커스텀 property `timestamp`는 ISO-8601 문자열.
 - `ErrorCategory`는 *서버 내부* 정책 모델로만 두고 응답에는 노출하지 않는다 — `ErrorCategory → HttpStatus`가 1:1이라 클라이언트는 HTTP `status`로 coarse 분기하고 `code`로 fine 분기하는 것이 자연스럽다. 응답에 `category`까지 두면 status와 의미 중복이 발생한다.
-- 검증 실패 시의 `errors[]`도 커스텀 property (PLAN-0005-B에서 도입).
+- 검증 실패 시의 `errors[]`도 커스텀 property (PLAN-0005-B에서 도입). 각 엔트리는 `{field, code, reason}` 3키다 (`code` 는 PLAN-0012-C 에서 추가) — `field` 는 위반 필드명, **`code` 는 실패 종류의 안정적 머신 식별자**(`ValidationErrorCode`, 아래 §5.2), `reason` 은 *사용자 표시용 한국어 문구*다. **프로그램적 분기는 `code` 로 하고 `reason` 은 표시 전용으로 본다** — `reason` 문구는 UX·i18n 사정으로 바뀔 수 있고 안정성을 약속하지 않는다.
 - `type` URI는 초기엔 `about:blank` (Spring 기본). 추후 에러 문서 호스팅 시 `https://errors.{host}/POST_NOT_FOUND` 같은 도메인-특화 URI로 전환 가능 — 이때 `code` 커스텀 property는 그대로 유지해 클라이언트 호환성을 보존한다.
 - **표준 채택 이유**: 업계 표준(RFC 9457), Spring 6 네이티브 지원으로 `ResponseEntityExceptionHandler`가 framework MVC 4xx에 ProblemDetail body를 자동 생성 → 우리는 `code`/`timestamp` 커스텀 property만 enrich하면 됨. 자기 정의 스키마를 유지하는 비용보다 표준에 맞춰가는 비용이 작다.
 - `traceId`는 **응답 body가 아니라 응답 헤더 `X-Trace-Id`로 노출한다.**
@@ -171,11 +173,24 @@ User 입력(email/nickname 형식·문자·길이, password byte 길이) 검증�
   2. **I/O·외부 상태 필요** — uniqueness(DB 조회), 유출 비번 블록리스트(외부 API), 참조 엔티티 존재 확인. 경계 애너테이션이 인프라(포트/리포지토리)에 손대면 헥사고날 경계 위반.
   3. **도메인 상태 의존** — 현재 애그리거트/시스템 상태에 따라 가부가 갈림(상태 전이 허용 여부, 잔액 충분). 도메인 invariant 영역.
   4. **호출자/문맥 의존** — 역할·테넌트·권한에 따라 규칙이 달라짐.
-  5. **에러 구조가 `{field, reason}` 보다 풍부해야 함** — 머신 code, 중첩/배열 path, 비즈니스 분류 등.
+  5. **에러 구조가 필드 단위를 넘어야 함** — 중첩/배열 path(`items[2].price`), 비즈니스 분류, 여러 필드를 묶는 상위 에러 등. *단순 머신 code 는 이 사유가 아니다* — §5.2 에서 경계가 `errors[].code` 로 직접 제공한다(PLAN-0012-C 로 개정. 그 전에는 "머신 code 가 필요하면 이관"이었으나, 경계가 code 를 제공하게 되면서 이관 사유에서 제외).
 
   리트머스 한 줄: *"이 한 필드의 값만 보고, DB·다른 필드·도메인 상태 없이 통과/실패를 정할 수 있나?"* — **예 → 경계 Bean Validation**(현행), **아니오 → 애플리케이션 계층 명시 검증**. 이는 §5 의 "경계=형식(syntactic) / 도메인=의미(semantic)" 분리와 일치한다.
 - **Post 적용 (PLAN-0012-B, 2026-07-05).** 레거시 Post 도 위 표준을 따른다. 제목/본문 길이 한도는 도메인 `PostContent` 의 `static final int MAX_TITLE_LENGTH`/`MAX_BODY_LENGTH` 가 단일 출처이고, 경계 DTO(`CreatePostRequest`/`UpdatePostRequest`)의 `@Size(max = 상수)` 가 이를 참조, `PostContent` 생성자가 같은 상수로 길이를 강제(비-웹 백스톱). *단, User(-A)와 달리 커스텀 validator 를 두지 않는다* — Post 규칙은 형식/정규화 없는 *길이 int* 뿐이라 `@Size` 로 충분하고 커스텀 제약은 YAGNI. 대신 `@Size`(Hibernate)와 VO 가 길이 비교를 독립 구현(상수만 공유)하는 좁은 divergence(측정·연산자·trim)는 *등가성 테스트*(경계 판정 == VO 판정, 경계값·trim·codePoint 벡터)로 고정. `errors[].reason` 한국어 계약은 Post 제약에도 확장. `errors[]` 셰이프·web 응답 계약 불변(경계가 이미 `VALIDATION_FAILED` 수렴).
-- **deferred.** 안정적 `errors[].code`(머신 코드)의 *전역* 도입(모든 제약 + `GlobalExceptionHandler` + Post/query 갱신)은 별도 Plan (i18n/프로그램적 분기 필요 시점). 본 amend 는 `errors[]` 셰이프(`{field, reason}`)를 바꾸지 않는다.
+- **`errors[].code` 도입으로 해소 (PLAN-0012-C, 2026-08-02).** 위 deferred 항목은 §5.2 로 해소되었다. `errors[]` 셰이프가 `{field, reason}` → `{field, code, reason}` 로 확장된다(additive, 기존 키 불변).
+
+#### 5.2 필드 에러 머신 코드 (`errors[].code`, Amended 2026-08-02, PLAN-0012-C)
+
+경계 검증 실패의 **표시 문구(`reason`)와 기계 판정(`code`)을 분리**한다. `reason` 만 있던 동안에는 클라이언트가 프로그램적 분기를 하려면 한국어 문장을 비교해야 했고(문구 수정 = 조용한 breaking change), 그 결합 때문에 E2E 가 `reason` 을 exact 로 고정해야 했다. `code` 는 그 역할을 넘겨받는 **안정 식별자**다.
+
+- **어휘는 web adapter 소유** — `adapter/in/web/error/ValidationErrorCode`. `common/error/ErrorCode`(응답 최상위 `code`)와 **축이 다르다**: 최상위는 *응답 1건의 분류*(`VALIDATION_FAILED`), 필드 코드는 *제약 1건의 실패 종류*. 두 enum 을 섞지 않는다. §5.1 "`code`/`message`(표현 관심사)는 web 계층이 소유"의 연장.
+- **초기 어휘 6개** — `REQUIRED`(`@NotBlank`/`@NotNull`) / `TOO_SHORT`(`@Size` 하한) / `TOO_LONG`(`@Size` 상한, `@MaxUtf8Bytes`) / `OUT_OF_RANGE`(`@Min`/`@Max`) / `INVALID_FORMAT`(`@ValidEmail`/`@ValidNickname`) / `INVALID`(fallback).
+- **파생은 핸들러 중앙 매핑** — 제약 애너테이션 타입(+ `@Size` 는 min/max 속성)에서 파생하고, **제약 선언에 code 를 적지 않는다**. 근거: ① 제약 인스턴스마다 code 를 손으로 적으면 중복이 흩어진다, ② 새 DTO·제약이 자동으로 커버된다, ③ 문구(`message`)는 필드마다 달라야 하므로 애너테이션이 소유하고 code 는 종류가 같으면 같아야 하므로 중앙이 소유 — 관심사 분업. 두 검증 경로(`@RequestBody` → `FieldError.unwrap`, `@RequestParam` → `ParameterValidationResult.unwrap`)가 **같은 어휘**를 낸다.
+- **일반 코드 채택, 필드별 코드 기각** — `TOO_LONG` 이지 `TITLE_TOO_LONG` 이 아니다. `{field, code}` 조합으로 이미 식별되므로 code 에 필드명을 중복 인코딩하지 않는다. 트레이드오프: 클라이언트가 code 를 항상 `field` 와 함께 봐야 한다. 대신 어휘가 필드 수에 비례해 증식하지 않는다.
+- **확장 규약** — 새 제약을 추가할 때 **기존 코드에 매핑하는 것이 기본**이고, 새 코드는 *클라이언트가 다르게 행동해야 할 때만* 만든다("문구가 다르다"는 새 코드 사유가 아니다 — 그건 `reason` 의 일). **code 이름 변경·삭제는 breaking change** 이므로 하지 않는다(추가만 하위 호환). 매핑 누락은 `INVALID` fallback 으로 degrade 하되, 실사용 제약이 fallback 으로 떨어지지 않는지는 exhaustiveness 테스트가 빌드 시점에 강제한다.
+- **의도적 정보 손실 2건** — ① `@NotBlank`(null+공백 모두)와 `@NotNull`(null)이 모두 `REQUIRED` 로 수렴한다. "누락"과 "공백만"의 구분이 필요해지면 `BLANK` 추가. ② `@Size(max)`(char 수)와 `@MaxUtf8Bytes`(바이트)가 모두 `TOO_LONG` 이다. 클라이언트 관점에서 둘 다 "값이 너무 김"이고 차이는 `reason` 이 설명한다. 분리 필요 시 `TOO_LONG_BYTES` 추가.
+- **범위 밖** — 요청 파싱 실패(malformed JSON, 타입 불일치)는 `MALFORMED_REQUEST` 로 흐르며 `errors[]` 자체가 없다(필드 단위 위반이 아님). `BusinessException` 계열(4xx 도메인 예외)은 필드가 아니라 *응답* 단위 code 를 쓴다(§2). `errors[].code` 는 **Bean Validation 위반이 만드는 `errors[]`** 에 한한다.
+- **i18n 과의 관계** — `code` 는 i18n 의 *구현 수단이 아니라 안전장치*다. 서버측 i18n 자체는 메시지 번들(애너테이션 message 키 + `Locale`)로 code 없이도 가능하다. 다만 i18n 을 켜면 `reason` 이 요청마다 달라지므로, `reason` 을 식별자로 쓰던 클라이언트·테스트·로그 집계가 전부 깨진다. `code` 는 그때 붙잡을 **로케일 불변 축**을 미리 남기는 것이다. i18n 도입 자체는 여전히 별도 Plan.
 
 ### 6. 도메인 예외 세분화 — 점진적 분해
 
@@ -293,7 +308,8 @@ Phase 2 도중 골격 수정이 필요해지면 **별도 후속 Plan으로 분�
 - **입력 검증 에러 계약 통일** (PLAN-0011 리뷰에서 발견 2026-06-07 → **§5.1 / PLAN-0012 로 부분 해소** 2026-06-13)
   - **§5.1(PLAN-0012)로 해소됨**: ① email 형식 / nickname 허용문자가 경계 커스텀 validator(`@ValidEmail`/`@ValidNickname`, VO 정책 메서드 공유)로 잡혀 `VALIDATION_FAILED` 로 수렴(더 이상 `INVALID_USER_CONTENT` 로 새지 않음). ② `PasswordHash` blank 등 *내부 불변식*을 사용자 입력 오류에서 분리(plain 예외 → 5xx). ④ DTO/VO 규칙 이중정의 → *정책 메서드 단일 출처*화.
   - **Post 마이그레이션 해소됨 (PLAN-0012-B, 2026-07-05)**: Post 제목/본문 길이·존재 검증이 경계(`@Size`/`@NotBlank`/`@NotNull`, 상수 단일 출처) + VO 백스톱으로 통일되고 `errors[].reason` 한국어 계약이 Post 로 확장됨(§5.1 "Post 적용" 참조). Post 는 web 에서 이미 `VALIDATION_FAILED` 로 수렴했으므로 누출 수정이 아니라 단일 출처·백스톱·패턴 정합.
-  - **남은 후속 (별도 Plan)**: ③ 안정적 `errors[].code`(머신 코드)의 *전역* 도입(모든 제약 + `GlobalExceptionHandler` + Post/query 갱신) — i18n / 프로그램적 분기 필요 시점에. (현재 i18n 불필요 확인 2026-06-13 → 보류. 그동안 프론트의 필드별 표시 메시지는 `errors[].reason` 이 담당.)
+  - **`errors[].code` 해소됨 (PLAN-0012-C, 2026-08-02)**: ③ 안정적 머신 코드가 §5.2 로 전역 도입됨 — 두 검증 경로(`@RequestBody`/`@RequestParam`)의 모든 제약이 핸들러 중앙 매핑으로 `ValidationErrorCode` 를 얻고, exhaustiveness 테스트가 매핑 누락을 빌드 시점에 막는다. `errors[]` 는 `{field, code, reason}` (additive). i18n 자체는 여전히 미도입(§5.2 "i18n 과의 관계" 참조).
+  - **본 항목 전체 해소** — ①②③④ + Post 마이그레이션이 모두 처리되어 PLAN-0012 패밀리(-A/-B/-C)가 종료된다.
 
 ## Related
 
