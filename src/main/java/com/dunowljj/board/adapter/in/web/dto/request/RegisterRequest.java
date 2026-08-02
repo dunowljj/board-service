@@ -13,9 +13,10 @@ import jakarta.validation.constraints.Size;
  * 커스텀 제약(null/blank 통과)과 짝을 이룬다. password 는 trim 안 함 — char 최소만 `@Size`, byte
  * 상한은 `@MaxUtf8Bytes`.
  *
- * <p>`errors[].code` 미도입(ADR-0005 §5.1)이라 `errors[].reason` 이 프론트의 사용자 표시 메시지다.
- * 따라서 *모든* 제약(`@NotBlank`/`@Size` 포함)에 한국어 메시지를 명시해 프레임워크 기본(영문)
- * 메시지가 섞이지 않게 한다.
+ * <p>`errors[].reason` 이 프론트의 사용자 표시 메시지이므로 *모든* 제약(`@NotBlank`/`@Size` 포함)에
+ * 한국어 메시지를 명시해 프레임워크 기본(영문) 메시지가 섞이지 않게 한다. 프로그램적 분기는
+ * `errors[].code` 가 담당하며(ADR-0005 §5.2), 이 코드는 제약 애너테이션 *타입*에서 핸들러가 파생하므로
+ * **여기에 code 를 적지 않는다** — 새 제약을 추가해도 자동으로 코드가 붙는다.
  */
 public record RegisterRequest(
         @NotBlank(message = "이메일을 입력해주세요") @ValidEmail String email,

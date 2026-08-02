@@ -140,8 +140,8 @@ class PostE2EIT {
     }
 
     @Test
-    @DisplayName("Post 제약 위반은 VALIDATION_FAILED + errors[].reason 한국어 exact (프레임워크 영문 누출 없음)")
-    void post_constraint_violations_return_korean_exact_reasons() throws Exception {
+    @DisplayName("@RequestBody 제약 위반은 VALIDATION_FAILED + errors[].code + reason 한국어 exact")
+    void post_constraint_violations_return_code_and_korean_exact_reasons() throws Exception {
         // ① title "" → @NotBlank, ② body null → @NotNull (create)
         mockMvc.perform(authed(post("/api/posts"))
                         .contentType(APPLICATION_JSON)
@@ -150,6 +150,8 @@ class PostE2EIT {
                                 """))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'title')].code", hasItem("REQUIRED")))
+                .andExpect(jsonPath("$.errors[?(@.field == 'body')].code", hasItem("REQUIRED")))
                 .andExpect(jsonPath("$.errors[?(@.field == 'title')].reason", hasItem("제목을 입력해주세요")))
                 .andExpect(jsonPath("$.errors[?(@.field == 'body')].reason", hasItem("본문을 입력해주세요")));
 
@@ -160,6 +162,7 @@ class PostE2EIT {
                         .content("{\"title\":\"" + longTitle + "\",\"body\":\"ok\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'title')].code", hasItem("TOO_LONG")))
                 .andExpect(jsonPath("$.errors[?(@.field == 'title')].reason",
                         hasItem("제목은 " + PostContent.MAX_TITLE_LENGTH + "자 이하여야 합니다")));
 
@@ -170,6 +173,7 @@ class PostE2EIT {
                         .content("{\"title\":\"ok\",\"body\":\"" + longBody + "\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'body')].code", hasItem("TOO_LONG")))
                 .andExpect(jsonPath("$.errors[?(@.field == 'body')].reason",
                         hasItem("본문은 " + PostContent.MAX_BODY_LENGTH + "자 이하여야 합니다")));
 
@@ -180,7 +184,29 @@ class PostE2EIT {
                         .content("{\"title\":\"" + longTitle + "\",\"body\":\"ok\"}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'title')].code", hasItem("TOO_LONG")))
                 .andExpect(jsonPath("$.errors[?(@.field == 'title')].reason",
                         hasItem("제목은 " + PostContent.MAX_TITLE_LENGTH + "자 이하여야 합니다")));
+    }
+
+    /**
+     * query 제약(`@RequestParam`)은 `@RequestBody` 와 **다른 예외·다른 unwrap API** 를 탄다
+     * (`HandlerMethodValidationException` / `ParameterValidationResult.unwrap`). 두 경로가 *같은 어휘*를
+     * 내는지가 PLAN-0012-C 의 핵심 검증이라, 위 RequestBody 케이스와 **같은 파일**에서 대조한다.
+     */
+    @Test
+    @DisplayName("@RequestParam 제약 위반도 같은 errors[].code 어휘를 낸다 (다른 추출 경로, 같은 어휘)")
+    void query_constraint_violations_return_same_code_vocabulary() throws Exception {
+        // @Min(0) 하한 위반
+        mockMvc.perform(authed(get("/api/posts")).param("page", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'page')].code", hasItem("OUT_OF_RANGE")));
+
+        // @Max(100) 상한 위반 — @Min 과 같은 OUT_OF_RANGE 로 수렴
+        mockMvc.perform(authed(get("/api/posts")).param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_FAILED"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'size')].code", hasItem("OUT_OF_RANGE")));
     }
 }

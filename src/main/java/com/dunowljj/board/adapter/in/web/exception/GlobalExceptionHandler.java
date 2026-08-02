@@ -1,9 +1,12 @@
 package com.dunowljj.board.adapter.in.web.exception;
 
+import com.dunowljj.board.adapter.in.web.dto.response.ValidationError;
 import com.dunowljj.board.adapter.in.web.error.ErrorCategoryHttpStatusMapper;
+import com.dunowljj.board.adapter.in.web.error.ValidationErrorCode;
 import com.dunowljj.board.common.error.BusinessException;
 import com.dunowljj.board.common.error.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.MessageSourceResolvable;
@@ -27,7 +30,6 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
@@ -49,7 +51,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
             MethodArgumentNotValidException ex, HttpHeaders headers,
             HttpStatusCode status, WebRequest request) {
-        List<Map<String, String>> errors = ex.getBindingResult().getFieldErrors().stream()
+        List<ValidationError> errors = ex.getBindingResult().getFieldErrors().stream()
                 .map(GlobalExceptionHandler::validationError)
                 .toList();
         ResponseEntity<Object> response = validationFailed(errors, headers, status, path(request));
@@ -72,9 +74,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             logInternalError("return-value validation failed", ex);
             return response;
         }
-        List<Map<String, String>> errors = ex.getParameterValidationResults().stream()
+        List<ValidationError> errors = ex.getParameterValidationResults().stream()
                 .flatMap(result -> result.getResolvableErrors().stream()
-                        .map(error -> validationError(fieldName(result), reason(error))))
+                        .map(error -> validationError(fieldName(result), unwrap(result, error), error)))
                 .toList();
         ResponseEntity<Object> response = validationFailed(errors, headers, status, path(request));
         logValidationFailed(errors);
@@ -121,7 +123,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private static ResponseEntity<Object> validationFailed(
-            List<Map<String, String>> errors, HttpHeaders headers,
+            List<ValidationError> errors, HttpHeaders headers,
             HttpStatusCode statusCode, String path) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(statusCode,
                 ErrorCode.VALIDATION_FAILED.defaultMessage());
@@ -143,7 +145,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .log("business exception");
     }
 
-    private static void logValidationFailed(List<Map<String, String>> errors) {
+    private static void logValidationFailed(List<ValidationError> errors) {
         log.atWarn()
                 .addKeyValue("code", ErrorCode.VALIDATION_FAILED.code())
                 .addKeyValue("errors", errors)
@@ -165,12 +167,41 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .log(message);
     }
 
-    private static Map<String, String> validationError(FieldError error) {
-        return validationError(error.getField(), reason(error));
+    private static ValidationError validationError(FieldError error) {
+        return validationError(error.getField(), unwrap(error), error);
     }
 
-    private static Map<String, String> validationError(String field, String reason) {
-        return Map.of("field", field, "reason", reason);
+    private static ValidationError validationError(String field, ConstraintViolation<?> violation,
+                                                   MessageSourceResolvable error) {
+        return new ValidationError(field, ValidationErrorCode.from(violation, error), reason(error));
+    }
+
+    /**
+     * {@code @Valid @RequestBody} 경로 — Spring 이 {@code ConstraintViolation} 을 {@code FieldError} 로
+     * 감싸므로 되꺼낸다 (ADR-0005 §5.2 fallback 사다리 ①). 감싸지 않은 바인딩 오류(타입 변환 실패 등)는
+     * {@code null} 을 돌려 이름 기반 fallback 으로 흐르게 한다.
+     */
+    private static ConstraintViolation<?> unwrap(FieldError error) {
+        try {
+            return error.contains(ConstraintViolation.class)
+                    ? error.unwrap(ConstraintViolation.class)
+                    : null;
+        } catch (RuntimeException ex) {
+            return null;
+        }
+    }
+
+    /**
+     * {@code @RequestParam} 제약 경로 — {@code FieldError} 가 아니라
+     * {@code ParameterValidationResult} 가 위반을 들고 있어 unwrap API 가 다르다 (ADR-0005 §5.2).
+     */
+    private static ConstraintViolation<?> unwrap(ParameterValidationResult result,
+                                                  MessageSourceResolvable error) {
+        try {
+            return result.unwrap(error, ConstraintViolation.class);
+        } catch (RuntimeException ex) {
+            return null;
+        }
     }
 
     private static String fieldName(ParameterValidationResult result) {
