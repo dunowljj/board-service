@@ -96,6 +96,7 @@ Plan 구현 PR이 squash-merge된 직후, **별개 후속 커밋**으로 archiva
    양쪽에 동시에 존재하면 lifecycle 위반 — archival을 중단하고 보고한다.
 3. **참조 일괄 갱신** — `grep -rn 'docs/plans/\(in-progress\|approved\)/PLAN-NNNN' docs/`의 모든 결과를 `docs/plans/done/` 경로로 치환. (다른 Plan의 Required Reading, ADR 본문, README 등.) 슬러그 멘션(`PLAN-NNNN`)은 경로 무관이므로 변경 불필요.
 4. 커밋 메시지: `chore: archive PLAN-NNNN as completed` (선례: `75f3c05`).
+5. **PR을 열지 않는다** — 브랜치에서 커밋한 뒤 main으로 fast-forward로 반영한다. 파일 이동뿐이라 리뷰할 것이 없고, 기능 PR 사이에 archival PR이 끼면 `git log`에서 실제 변경 단위를 읽기 어려워진다. (선례 `75f3c05`·`a54b293`·`d80143c`·`89617b0`·`60a6c9a` 모두 PR 없이 main에 있다. `38faa9a`만 예외 — 이 규칙이 비어 있던 동안 PR로 처리됨.)
 
 ### Block 규칙
 
